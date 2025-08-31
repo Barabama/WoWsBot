@@ -53,17 +53,20 @@ class MainController:
         screen = self.wdmgr.capture_screen()
         match = self.arlctr.match_template(screen=screen)
         name = match.name
+        
         if name in ["battle_queue", "battle_member", "battle_mission"]:
             log.info(f"Waiting for battle")
-            time.sleep(5)
+
         elif name in ["battle_began"]:
             log.info(f"Battle started")
             self.battlebot.tick()
-            time.sleep(0.5)
+
         elif name in ["shift_btn", "f1_btn", "back_to_port_btn_2"]:
             log.info(f"Battle ended")
             self.battlebot.quit_battle()
+            
         else:
             log.info(f"In port handle")
             self.portbot.tick(match=match)
-            time.sleep(0.5)
+
+        time.sleep(1)

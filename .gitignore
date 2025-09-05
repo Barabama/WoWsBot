@@ -6,12 +6,15 @@ dist/
 wheels/
 *.egg-info
 
+# IDEs
+.idea/
+.vscode/
+
 # Virtual environments
 .venv
 
 # YOLO training
-training/dataset/
-training/runs/
+training/
 
 # Tests
 tests/

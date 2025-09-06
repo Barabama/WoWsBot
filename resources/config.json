@@ -23,7 +23,7 @@
         "ship_info": {
             "name": "ship_info",
             "area":[0, 600, 360, 100]
-            },
+        },
         "camera_info": {
             "name": "camera_info",
             "area": [0, 770, 240, 130]
@@ -31,7 +31,11 @@
         "combat_info": {
             "name": "combat_info",
             "area": [0, 672, 240, 100]
-    },
+        },  
+        "bigmap": {
+            "name": "bigmap",
+            "area": [460, 160, 520, 520]
+        },
         "minimap": {
             "name": "minimap",
             "area": [1080, 540, 360, 360]
@@ -39,11 +43,22 @@
     },
     
     "templates": {
+        "map_mode": {
+            "name": "map_mode",
+            "weight": 13.6,
+            "area": [1100, 420, 150, 50]
+        },
+        "b_btn": {
+            "name": "b_btn",
+            "weight": 13.6,
+            "area": [1170, 180, 30, 30]
+        },
         "autopilot_on": {
             "name": "autopilot_on",
             "weight": 13.4,
-            "area": [275, 760, 90, 30]
+            "area": [275, 660, 90, 30]
         },
+
         "shift_btn": {
             "name": "shift_btn",
             "weight": 13.2,
@@ -54,6 +69,11 @@
             "weight": 13.1,
             "area": [650, 800, 140, 100]
         },
+        "battle_began": {
+            "name": "battle_began",
+            "weight": 13,
+            "area": [9, 605, 20, 20]
+        },
 
         "battle_btn": {
             "name": "battle_btn",
@@ -62,7 +82,7 @@
         },
         "battle_queue": { 
             "name": "battle_queue",
-            "weight": 12.8,
+            "weight": 12.6,
             "area": [600, 600, 250, 300]
         },
         "battle_member": {
@@ -72,18 +92,13 @@
         },
         "battle_mission": {
             "name": "battle_mission",
-            "weight": 12.5,
+            "weight": 12.6,
             "area": [0, 0, 1440, 100]
-        },
-        "battle_began": {
-            "name": "battle_began",
-            "weight": 12.4,
-            "area": [9, 605, 20, 20]
         },
 
         "rewards_btn": {
             "name": "rewards_btn",
-            "weight": 8.2,
+            "weight": 8,
             "area": [400, 500, 250, 200]
         },
         "login_btn": {

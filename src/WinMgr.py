@@ -55,10 +55,10 @@ class WindowManager:
         if (self.window.width, self.window.height) != (w, h):
             self.window.resizeTo(w, h)
             log.info("Reset window size")
-        
-    def capture_screen(self) -> np.ndarray:
+
+    def capture_screen(self, delay=0.5) -> np.ndarray:
         self.check_window()
-        time.sleep(0.5)
+        time.sleep(delay)
         x, y, w, h = self._region
         monitor = {"top": y, "left": x, "width": w, "height": h}
         with mss.mss() as sct:

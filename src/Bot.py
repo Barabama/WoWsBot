@@ -137,8 +137,9 @@ class BotInPort(BotBase):
     def close_page(self):
         names = ["back_to_port_btn_1", "back_to_port_btn_2",
                  "close_btn_1", "close_btn_2", "esc_btn"]
-        res = self._click_match(names)
-        log.info(f"Close page: {res}")
+        if not self._click_match(names):
+            self._press_key("esc")
+        log.info(f"Try to close page")
 
     def select_battle(self, type: str = "coop") -> bool:
         try:
@@ -180,9 +181,9 @@ class BotInPort(BotBase):
             # remove buff
             self._click_match(names=["buff_btn"])  # to show buff_btn
             pos_buff_btn = self.arlctr.config["positions"]["buff_btn"]
-            self._click_xy(*pos_buff_btn, button="secondary")
             pos_buff_down_btn = self.arlctr.config["positions"]["buff_down_btn"]
             self._click_xy(*pos_buff_down_btn)
+            self._click_xy(*pos_buff_btn, button="secondary")
             self._click_match(names=["buff_down"])
             log.info("Removed buff")
 

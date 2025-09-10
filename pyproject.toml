@@ -13,5 +13,6 @@ dependencies = [
     "pydirectinput",
     "opencv-python",
     "rapidocr-onnxruntime",
+    "scikit-learn",
     "ultralytics",
 ]

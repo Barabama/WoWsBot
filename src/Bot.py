@@ -23,27 +23,24 @@ log = logging.getLogger(__name__)
 
 class BotBase:
 
-    def __init__(self):
-        self.interrupt_event = None
+    def __init__(self, event: Event):
+        self.event_stop = event
 
-    def set_interrupt_event(self, event: Event):
-        self.interrupt_event = event
-
-    def _check_interrupt(self) -> bool:
-        """Check if interrupt event is set"""
-        if self.interrupt_event and self.interrupt_event.is_set():
+    def _check_event(self) -> bool:
+        """Check if event is set"""
+        if self.event_stop.is_set():
             return True
         return False
 
     def _sleep(self, t: float):
         """Sleep randomly between t and 2t"""
-        if self._check_interrupt():
+        if self._check_event():
             return
         time.sleep(random.uniform(t, t * 2))
 
     def _move(self, dx: int, dy: int):
         """Move mouse by dx, dy"""
-        if self._check_interrupt():
+        if self._check_event():
             return
         x_start, y_start = pdi.position()
 
@@ -53,7 +50,7 @@ class BotBase:
 
         steps = int(duration * 100)  # step per 10ms
         for i in range(1, steps + 1):
-            if self._check_interrupt():
+            if self._check_event():
                 return
             ratio = i / steps
             x_jitter = random.uniform(-2, 2)
@@ -66,18 +63,18 @@ class BotBase:
 
     def _move_to(self, x: int, y: int):
         """Move mouse to a point(x, y)"""
-        if self._check_interrupt():
+        if self._check_event():
             return
         x_start, y_start = pdi.position()
         dx = x - x_start
         dy = y - y_start
         self._move(dx, dy)
-        if not self._check_interrupt():
+        if not self._check_event():
             pdi.moveTo(x, y)
 
     def _click(self, button: str = "primary", clicks: int = 1, interval: float = 0.1):
         for i in range(clicks):
-            if self._check_interrupt():
+            if self._check_event():
                 return
             pdi.mouseDown(button=button, duration=interval)
             pdi.mouseUp(button=button, duration=interval)
@@ -91,7 +88,7 @@ class BotBase:
 
     def _press_key(self, key: str, presses: int = 1, interval: float = 0.1):
         for i in range(presses):
-            if self._check_interrupt():
+            if self._check_event():
                 return
             pdi.keyDown(key)
             self._sleep(interval)
@@ -99,7 +96,7 @@ class BotBase:
             self._sleep(interval)
 
     def _scroll(self, direction: Any = False, srolls: int = 1, interval: float = 0.1):
-        if self._check_interrupt():
+        if self._check_event():
             return
         if direction in [0, False, "-", "down"]:
             symbol = "-"
@@ -109,15 +106,15 @@ class BotBase:
             raise ValueError("Invalid direction")
         dw = int(int(f"{symbol}120") * srolls)
         for i in range(srolls):
-            if self._check_interrupt():
+            if self._check_event():
                 return
             win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, dw, 0)
             self._sleep(interval)
 
 
 class BotInPort(BotBase):
-    def __init__(self, arlctr: AreaLocator, wdmgr: WindowManager):
-        super().__init__()
+    def __init__(self, event: Event, arlctr: AreaLocator, wdmgr: WindowManager):
+        super().__init__(event=event)
         self.arlctr = arlctr
         self.wdmgr = wdmgr
 
@@ -227,8 +224,8 @@ class BotInPort(BotBase):
 
 
 class BotInBattle(BotBase):
-    def __init__(self, arlctr: AreaLocator, wdmgr: WindowManager):
-        super().__init__()
+    def __init__(self, event: Event, arlctr: AreaLocator, wdmgr: WindowManager):
+        super().__init__(event=event)
         self.arlctr = arlctr
         self.wdmgr = wdmgr
         self.timer_atpl = None
@@ -252,7 +249,7 @@ class BotInBattle(BotBase):
                 return True
 
             self._press_key("m")  # open bigmap
-            if reds := self.arlctr.search_reds(screen=self.wdmgr.capture_screen()):
+            if reds := self.arlctr.read_bigmap(screen=self.wdmgr.capture_screen()):
                 # set a point random
                 self._click_xy(*random.choice(reds))
             else:

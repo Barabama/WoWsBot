@@ -48,8 +48,10 @@ def main():
         root.mainloop()
     except KeyboardInterrupt:
         logging.getLogger(__name__).info("App stopped.")
-        hkmgr.exit_script()
+        hkmgr.script_exit()
         sys.exit(0)
+    finally:
+        thread_hkmgr.
 
 
 if __name__ == "__main__":

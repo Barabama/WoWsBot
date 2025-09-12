@@ -63,7 +63,8 @@ class MainController:
             if self.event_stop.is_set():
                 return
 
-            if name in ["battle_queue", "battle_member", "battle_mission"]:
+            if name in ["battle_loading", "battle_queue", "battle_mission",
+                        "battle_member", "battle_tips"]:
                 log.info(f"Waiting for battle")
 
             elif name in ["battle_began", "map_mode", "b_btn", "autopilot_on"]:

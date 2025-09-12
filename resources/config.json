@@ -1,21 +1,18 @@
 {
     "language": "zh_cn",
     "title": "《战舰世界》",
-    "match_threshold": 0.7,
-    "ocr_retry": 3,
-    "action_delay": {
-        "ocr": 0.5,
-        "click": [0.8, 1.2],
-        "press": [0.5, 0.8]
-    },
-
     "region": [0, 0, 1440, 900],
+
+    "match_threshold": 0.7,
+    "model_compass": "yolo11n_pose_compass.pt",
+    "model_minimap": "yolo11n_pose_minimap.pt",
+    "model_warship": "yolo11n_pose_warship.pt",
 
     "positions": {
         "ship_in_port": [130, 740],
         "equipment": [500, 75],
-        "buff_btn": [1270, 305],
-        "buff_down_btn": [1125, 275],
+        "buff_page_btn": [1270, 305],
+        "buff_down_mod_btn": [1125, 275],
         "confirm_btn": [650, 610]
     },
 
@@ -31,7 +28,7 @@
         "combat_info": {
             "name": "combat_info",
             "area": [0, 672, 240, 100]
-        },  
+        },
         "bigmap": {
             "name": "bigmap",
             "area": [460, 160, 520, 520]
@@ -39,6 +36,10 @@
         "minimap": {
             "name": "minimap",
             "area": [1080, 540, 360, 360]
+        },
+        "compass": {
+            "name": "compass",
+            "area": [0, 670, 230, 230]
         }
     },
     
@@ -80,22 +81,32 @@
             "weight": 13,
             "area": [640, 0, 160, 60]
         },
+        "battle_loading": {
+            "name": "battle_loading",
+            "weight": 12.8,
+            "area": [650, 460, 150, 60]
+        },
         "battle_queue": { 
             "name": "battle_queue",
             "weight": 12.6,
             "area": [600, 600, 250, 300]
-        },
-        "battle_member": {
-            "name": "battle_member",
-            "weight": 12.6,
-            "area": [0, 0, 1440, 100]
         },
         "battle_mission": {
             "name": "battle_mission",
             "weight": 12.6,
             "area": [0, 0, 1440, 100]
         },
-
+        "battle_member": {
+            "name": "battle_member",
+            "weight": 12.6,
+            "area": [0, 0, 1440, 100]
+        },
+        "battle_tips": {
+            "name": "battle_tips",
+            "weight": 12.4,
+            "area": [0, 0, 1440, 100]
+        },
+        
         "rewards_btn": {
             "name": "rewards_btn",
             "weight": 8,
@@ -132,24 +143,35 @@
             "weight": 7.0,
             "area": [620, 800, 200, 100]
         },
+
         "esc_btn": {
             "name": "esc_btn",
             "weight": 5,
             "area": [1300, 0, 140, 60]
         },
 
-        "flag_down": {
-            "name": "flag_down",
+        "flag_up_btn": {
+            "name": "flag_up_btn",
             "weight": 1,
             "area": [700, 400, 300, 80]
         },
-        "buff_btn": {
-            "name": "eco_buff_btn",
+        "flag_down_btn": {
+            "name": "flag_down_btn",
+            "weight": 1,
+            "area": [700, 400, 300, 80]
+        },
+        "buff_fold_btn": {
+            "name": "buff_fold_btn",
             "weight": 1,
             "area": [0, 0, 150, 60]
         },
-        "buff_down": {
-            "name": "eco_buff_down",
+        "buff_up_btn": { 
+            "name": "buff_up_btn",
+            "weight": 1,
+            "area": [800, 360, 130, 40]
+        },
+        "buff_down_btn": {
+            "name": "buff_down_btn",
             "weight": 1,
             "area": [800, 360, 130, 40]
         },

@@ -119,83 +119,109 @@ class BotInPort(BotBase):
         self.wdmgr = wdmgr
 
         # step flags
+        self.typed = False
         self.selected = False
-        self.prepared = False
+        self.equipped = False
+        self.deflaged = False
+        self.debuffed = False
 
-    def _click_match(self, names: list[str]) -> bool:
-        screen = self.wdmgr.capture_screen()
-        match = self.arlctr.match_template(screen=screen, names=names)
-        if match.name in names:
+    def _capture_screen(self, force: bool = False):
+        if self.screen is None or force:
+            self._sleep(0.5)
+            self.screen = self.wdmgr.capture_screen()
+
+    def _match(self, names: list[str]) -> tuple[bool, Match]:
+        match = self.arlctr.match_template(screen=self.screen, names=names)
+        return match.name in names, match
+
+    def _match_click(self, names: list[str]) -> bool:
+        flag, match = self._match(names)
+        if flag:
             x, y, w, h = match.loc
             self._click_xy(x + w // 2, y + h // 2)
-            return True
-        return False
+        return flag
 
     def close_page(self):
         names = ["back_to_port_btn_1", "back_to_port_btn_2",
                  "close_btn_1", "close_btn_2", "esc_btn"]
-        if not self._click_match(names):
+        if not self._match_click(names):
             self._press_key("esc")
         log.info(f"Try to close page")
 
-    def select_battle(self, type: str = "coop") -> bool:
+    def select_type(self, type: str = "coop") -> bool:
+        mode = f"{type}_mode"
+        btn = f"{type}_btn"
         try:
-            # select battle type
-            screen = self.wdmgr.capture_screen()
-            mode = f"{type}_mode"
-            btn = f"{type}_btn"
-            names = [mode]
-            match = self.arlctr.match_template(screen=screen, names=names)
-            if match.name not in names:
-                x, y, w, h = self.arlctr.config["templates"][mode]["area"]
-                self._click_xy(x + w // 2, y + h // 2)
-                self._click_match([btn])
-            log.info("Selected battle type")
-
-            # select ship
-            pos_ship = self.arlctr.config["positions"]["ship_in_port"]
-            self._move_to(*pos_ship)
-            self._scroll("down", 50)  # scroll to top
-            self._click()
-            log.info("Selected ship")
-            return True
+            log.info(f"Battle type {type} selecting...")
+            flag, match = self._match(names=[mode])
+            if flag:
+                return flag
+            x, y, w, h = self.arlctr.config["templates"][mode]["area"]
+            self._click_xy(x + w // 2, y + h // 2)
+            self._capture_screen(force=True)  # a new type seelected page
+            return self._match_click(names=[btn])
 
         except Exception:
             log.error(traceback.format_exc())
             return False
 
-    def prepare_battle(self) -> bool:
+    def select_ship(self) -> bool:
         try:
-            # equipment
+            log.info("Ship selecting...")
+            pos_ship = self.arlctr.config["positions"]["ship_in_port"]
+            self._move_to(*pos_ship)
+            self._scroll("up", 20)  # scroll to top
+            self._click()
+            return True
+        except Exception:
+            log.error(traceback.format_exc())
+            return False
+
+    def select_equipment(self) -> bool:
+        try:
+            log.info("Equipment selecting...")
             pos_equip = self.arlctr.config["positions"]["equipment"]
             self._click_xy(*pos_equip)
-            log.info("Selected equipment")
-
-            # remove flag
-            if self._click_match(names=["flag_down"]):
-                log.info("Removed flag")
-
-            # remove buff
-            self._click_match(names=["buff_btn"])  # to show buff_btn
-            pos_buff_btn = self.arlctr.config["positions"]["buff_btn"]
-            pos_buff_down_btn = self.arlctr.config["positions"]["buff_down_btn"]
-            self._click_xy(*pos_buff_down_btn)
-            self._click_xy(*pos_buff_btn, button="secondary")
-            self._click_match(names=["buff_down"])
-            log.info("Removed buff")
-
             return True
-
         except Exception:
+            log.error(traceback.format_exc())
+            return False
+
+    def remove_flag(self) -> bool:
+        try:
+            log.info("Flag removing...")
+            flag, match = self._match(names=["flag_up_btn"])
+            if flag:
+                return True
+            return self._match_click(["flag_down_btn"])
+        except Exception as e:
+            log.error(traceback.format_exc())
+            return False
+
+    def remove_buff(self) -> bool:
+        try:
+            log.info("Buff removing...")
+            self._match_click(names=["buff_fold_btn"])  # to show buff_btn
+            pos_buff_down_mod_btn = self.arlctr.config["positions"]["buff_down_mod_btn"]
+            self._click_xy(*pos_buff_down_mod_btn)  # use mod to remove buff
+            pos_buff_page_btn = self.arlctr.config["positions"]["buff_page_btn"]
+            self._click_xy(*pos_buff_page_btn, button="secondary")  # to show buff page
+
+            self._capture_screen(force=True)  # a new page
+            flag, match = self._match(names=["buff_up_btn"])
+            if flag:
+                return flag
+            return self._match_click(names=["buff_down_btn"])
+        except Exception as e:
             log.error(traceback.format_exc())
             return False
 
     def start_battle(self) -> bool:
         try:
-            self._click_match(names=["battle_btn"])
+            log.info("Battle starting...")
+            self._match_click(names=["battle_btn"])
             pos_confirm_btn = self.arlctr.config["positions"]["confirm_btn"]
             self._click_xy(*pos_confirm_btn)
-            log.info("Started battle")
             return True
         except Exception:
             log.error(traceback.format_exc())
@@ -203,21 +229,30 @@ class BotInPort(BotBase):
 
     def tick(self, match: Match):
         name = match.name
+        self.screen = match.screen
 
-        if name in ["rewards_btn", "login_btn"]:
-            x, y, w, h = match.loc
-            self._click_xy(x + w // 2, y + h // 2)
-
-        elif name == "battle_btn" and not self.selected:
-            self.selected = self.select_battle()
-
-        elif name == "battle_btn" and not self.prepared:
-            self.prepared = self.prepare_battle()
+        names = ["rewards_btn", "login_btn"]
+        if name in names:
+            self._match_click(names)
 
         elif name == "battle_btn":
-            flag = self.start_battle()
-            self.selected = not flag
-            self.prepared = not flag
+            if not self.typed:
+                self.typed = self.select_type()
+            elif not self.selected:
+                self.selected = self.select_ship()
+            elif not self.equipped:
+                self.equipped = self.select_equipment()
+            elif not self.deflaged:
+                self.deflaged = self.remove_flag()
+            elif not self.deflaged:
+                self.debuffed = self.remove_buff()
+            else:
+                flag = self.start_battle()
+                self.typed = not flag
+                self.selected = not flag
+                self.equipped = not flag
+                self.deflaged = not flag
+                self.debuffed = not flag
 
         else:
             self.close_page()
@@ -228,44 +263,103 @@ class BotInBattle(BotBase):
         super().__init__(event=event)
         self.arlctr = arlctr
         self.wdmgr = wdmgr
-        self.timer_atpl = None
+        self.timer_atpl = datetime.now()
         self.interval_atpl = 100
+        self.sight = 0.0
+        self.enemies = [(0.0, 0.0)]
+
+    def _capture_screen(self, force: bool = False):
+        if self.screen is None or force:
+            self._sleep(0.5)
+            self.screen = self.wdmgr.capture_screen()
+
+    def _match(self, names: list[str]) -> tuple[bool, Match]:
+        match = self.arlctr.match_template(screen=self.screen, names=names)
+        return match.name in names, match
+
+    def _match_click(self, names: list[str]) -> bool:
+        flag, match = self._match(names)
+        if flag:
+            x, y, w, h = match.loc
+            self._click_xy(x + w // 2, y + h // 2)
+        return flag
 
     def set_minimap(self):
         """Set size of minimap middle"""
         self._press_key("-", presses=6, interval=0.01)
         self._press_key("=", presses=3, interval=0.01)
 
-    def close_map(self):
-        self._press_key("m")
+    def open_bigmap(self):
+        if not self._match(["map_mode", "b_btn"])[0]:
+            self._press_key("m")
+
+    def close_bigmap(self):
+        if self._match(["map_mode", "b_btn"])[0]:
+            self._press_key("m")
 
     def set_autopilot(self) -> bool:
         try:
-            self.set_minimap()
-            screen = self.wdmgr.capture_screen()
-            names = ["autopilot_on"]
-            match = self.arlctr.match_template(screen=screen, names=names)
-            if match.name in names:
+            flag, match = self._match(["autopilot_on"])
+            if flag and self.timer_atpl > datetime.now():
                 return True
 
-            self._press_key("m")  # open bigmap
-            if reds := self.arlctr.read_bigmap(screen=self.wdmgr.capture_screen()):
+            log.info("Setting autopilot")
+            self.open_bigmap()
+
+            self._capture_screen(force=True)  # a new page bigmap
+            if reds := self.arlctr.read_bigmap(screen=self.screen):
                 # set a point random
                 self._click_xy(*random.choice(reds))
             else:
                 # set to middle
                 x, y, w, h = self.arlctr.config["region"]
                 self._click_xy(x + w // 2, y + h // 2)
-            self._press_key("m")  # close bigmap
+
+            self.close_bigmap()
+            log.info("Autopilot set")
 
             # reset clock
             self.timer_atpl = datetime.now() + timedelta(seconds=self.interval_atpl)
-            log.info("Autopilot set")
             return True
 
         except Exception:
             log.error(traceback.format_exc())
             return False
+
+    def build_nautical_chart(self):
+        delta = self.arlctr.read_compass(self.screen)
+        map_data = self.arlctr.read_minimap(self.screen)
+        if delta is None:
+            return False
+        if map_data is None:
+            return False
+
+        # calculate sight
+        sight = (0, -1)  # north
+        mag_delta = np.sqrt(delta[0]**2 + delta[1]**2)
+        mag_sight = np.sqrt(sight[0]**2 + sight[1]**2)
+        dot_product = delta[0] * sight[0] + delta[1] * sight[1]
+        cross_product = delta[0] * sight[1] - delta[1] * sight[0]
+        angle_cos = dot_product / (mag_delta * mag_sight)
+        angle_cos = np.clip(angle_cos, -1.0, 1.0)  # range in [-1, 1]
+        angle_rad = np.arccos(angle_cos)
+        angle_rad = -angle_rad if cross_product < 0 else angle_rad
+        self.sight = (2 * np.pi - angle_rad) % (2 * np.pi)
+
+        # handle map_data
+        p_self, polar = map_data["self"]
+        polar_angle = np.arctan2(polar[0], polar[1])
+        enemies = map_data["enemy"]
+        
+        if len(enemies) > 0:
+            enemies = np.array(enemies) - p_self
+            dists = np.linalg.norm(enemies, axis=1)
+            angles = np.arctan2(enemies[:, 1], enemies[:, 0])
+            rads = angles - polar_angle
+            rads = rads % (2 * np.pi)
+            self.enemies = [(float(d), float(r)) for d, r in zip(dists, rads)]
+        else:
+            self.enemies = []
 
     def fire_weapon(self):
 
@@ -297,10 +391,13 @@ class BotInBattle(BotBase):
 
     def tick(self, match: Match):
         name = match.name
+        self.screen = match.screen
 
         if name in ["map_mode", "b_btn"]:
-            self.close_map()
-        if self.timer_atpl is None or self.timer_atpl < datetime.now():
-            self.set_autopilot()
+            self.close_bigmap()
 
-        self.fire_weapon()
+        # self.set_autopilot()
+
+        self.build_nautical_chart()
+
+        # self.fire_weapon()

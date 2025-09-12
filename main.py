@@ -11,10 +11,8 @@ from src.HkMgr import HotkeyManager
 from src.GUI import MainGUI
 from src.WinMgr import WindowManager
 from src.MCtrl import MainController
-from src.Bot import BotInPort, BotInBattle
 
 
-# title = "World of Warships"
 log_level = "DEBUG" if len(sys.argv) > 1 else "INFO"
 
 
@@ -27,11 +25,7 @@ def main():
         title = arlctr.config["title"]
         region = tuple(arlctr.config["region"])
         wdmgr = WindowManager(title=title, region=region)
-        portbot = BotInPort(arlctr=arlctr, wdmgr=wdmgr)
-        battlebot = BotInBattle(arlctr=arlctr, wdmgr=wdmgr)
-
-        mctrl = MainController(arlctr=arlctr, hkmgr=hkmgr, wdmgr=wdmgr,
-                               portbot=portbot, battlebot=battlebot)
+        mctrl = MainController(arlctr=arlctr, hkmgr=hkmgr, wdmgr=wdmgr)
     except Exception:
         traceback.print_exc()
         sys.exit(1)
@@ -51,7 +45,10 @@ def main():
         hkmgr.script_exit()
         sys.exit(0)
     finally:
-        thread_hkmgr.
+        if thread_hkmgr.is_alive():
+            thread_hkmgr.join(timeout=0)
+        if thread_mctrl.is_alive():
+            thread_mctrl.join(timeout=0)
 
 
 if __name__ == "__main__":

@@ -18,3 +18,5 @@ training/
 
 # Tests
 tests/
+
+resources/user.json

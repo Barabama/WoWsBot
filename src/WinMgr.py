@@ -56,7 +56,7 @@ class WindowManager:
             self.window.resizeTo(w, h)
             log.info("Reset window size")
 
-    def capture_screen(self, delay=0.5) -> np.ndarray:
+    def capture_screen(self, delay=0.2) -> np.ndarray:
         self.check_window()
         time.sleep(delay)
         x, y, w, h = self._region

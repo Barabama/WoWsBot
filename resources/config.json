@@ -1,6 +1,4 @@
 {
-    "language": "zh_cn",
-    "title": "《战舰世界》",
     "region": [0, 0, 1440, 900],
 
     "match_threshold": 0.7,
@@ -183,7 +181,7 @@
         "coop_btn": {
             "name": "coop_btn",
             "weight": 1,
-            "area": [300, 180, 840, 600]
+            "area": [0, 150, 1440, 700]
         }
 
     }

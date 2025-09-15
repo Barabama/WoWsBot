@@ -1,10 +1,11 @@
 #  src/ArLctr.py
 
-from collections import defaultdict
 import json
 import logging
 import os
+import threading
 
+from collections import defaultdict
 from dataclasses import dataclass
 
 import numpy as np
@@ -22,54 +23,58 @@ class Template:
     weight: float
     area: tuple[int, int, int, int]
 
-# @dataclass
-# class OCRArea:
-#     name: str
-#     area: tuple[int, int, int, int]
-#     expects: list[str]  # useless yet
-
 
 @dataclass
 class Match:
     name: str
     loc: tuple[int, int, int, int]
     val: float
+    roi: np.ndarray
     screen: np.ndarray
-
-
-@dataclass
-class MapData:
-    self: list[tuple[int, int]]
-    ally: list[tuple[int, int]]
-    enemy: list[tuple[int, int]]
 
 
 class AreaLocator:
     def __init__(self):
         self.resource_path = "resources"
         json_path = os.path.join(self.resource_path, "config.json")
+        user_path = os.path.join(self.resource_path, "user.json")
         models_path = os.path.join(self.resource_path, "models")
         templates_path = os.path.join(self.resource_path, "templates")
 
         self.config = self.load_config(json_path)
+        self.user = self.load_user(user_path)
         self.templates = self.load_templates(templates_path)
         self.model_compass = self.load_model(models_path, self.config["model_compass"])
         self.model_minimap = self.load_model(models_path, self.config["model_minimap"])
         self.model_warship = self.load_model(models_path, self.config["model_warship"])
 
     def load_config(self, json_path: str) -> dict:
+        """Load configuration from JSON file"""
         if not os.path.exists(json_path):
             raise FileNotFoundError(f"'config.json' not found at {json_path}")
         with open(json_path, "r", encoding="utf-8") as f:
             config = json.load(f)
-        required_keys = ["language", "title", "region", "positions", "areas", "templates"]
+        required_keys = ["region", "positions", "areas", "templates"]
         missing_keys = [key for key in required_keys if key not in config]
         if missing_keys:
             raise ValueError(f"Missing keys in config.json, {missing_keys}")
         return config
 
+    def load_user(self, user_path: str) -> dict:
+        """Load user configuration from JSON file"""
+        if not os.path.exists(user_path):
+            raise FileNotFoundError(f"'user.json' not found at {user_path}")
+        with open(user_path, "r", encoding="utf-8") as f:
+            user = json.load(f)
+        required_keys = ["language", "title", "scheduled_tasks"]
+        missing_keys = [key for key in required_keys if key not in user]
+        if missing_keys:
+            raise ValueError(f"Missing keys in user.json, {missing_keys}")
+        return user
+
     def load_templates(self, templates_path: str) -> dict[str, Template]:
-        language: str = self.config["language"]
+        """Load templates from the templates directory"""
+        language: str = self.user["language"]
         templates: dict[str, dict] = self.config["templates"]
         tmpls = {}
         for key, tmpl in templates.items():
@@ -87,6 +92,7 @@ class AreaLocator:
         return tmpls
 
     def load_model(self, models_path: str, name: str) -> YOLO | None:
+        """Load a YOLO model from the models directory"""
         path = os.path.join(models_path, name)
         if os.path.exists(path):
             log.info(f"Loaded model {name}")
@@ -96,6 +102,7 @@ class AreaLocator:
             return None
 
     def get_templates(self, names: list[str]) -> list[Template]:
+        """Get sorted templates by names or all templates if names is empty"""
         names = names or list(self.templates.keys())
         tmpls = []
         for name in names:
@@ -107,27 +114,53 @@ class AreaLocator:
         tmpls.sort(key=lambda x: x.weight, reverse=True)
         return tmpls
 
-    def _show_borderless_window(self, name: str, loc: tuple[int, int], image: np.ndarray,):
-        cv2.namedWindow(name, cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty(name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.moveWindow(name, loc[0], loc[1])
-        try:
-            cv2.setWindowProperty(name, cv2.WND_PROP_TOPMOST, 1)
-        except AttributeError:
-            pass
-        cv2.imshow(name, image)
+    def _show_window(self, name: str, loc: tuple[int, int], image: np.ndarray):
+        """Display an image in a named OpenCV window"""
+        def show_image():
+            # Use a default window name if name is "unknown" to avoid OpenCV errors
+            window_name = "result" if name == "unknown" else name
+            cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+            cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            height, width = image.shape[:2]
+            cv2.resizeWindow(window_name, width, height)
+            cv2.moveWindow(window_name, loc[0], loc[1])
+            try:
+                cv2.setWindowProperty(window_name, cv2.WND_PROP_TOPMOST, 1)
+            except AttributeError:
+                pass
+            cv2.imshow(window_name, image)
+            cv2.waitKey(3000)
+            cv2.destroyWindow(window_name)
 
-    # def get_ocr_area(self, key: str) -> OCRArea:
-    #     if key not in self.config["areas"]:
-    #         raise ValueError(f"Area {key} not found in 'areas' of config")
+        thread = threading.Thread(target=show_image, daemon=True)
+        thread.start()
+        thread.join(timeout=3)
 
-    #     ocr_area: dict = self.config["areas"][key]
-    #     return OCRArea(name=str(ocr_area.get("name", key)),
-    #                    area=tuple(ocr_area.get("area", self.config["region"])),
-    #                    expects=["null"],)
+    def _draw_overlay(self, screen: np.ndarray, elems: list[tuple[str, tuple]]) -> np.ndarray:
+        """Draw overlay elements on the screen"""
+        overlay = screen.copy()
 
-    def match_template(self, screen: np.ndarray, names: list[str] = [], show: bool = False) -> Match:
-        best_match = {"name": "unknown", "loc": [0, 0, 0, 0], "val": 0.65, "screen": screen}
+        for elem, params in elems:
+            if elem == "rectangle":
+                x, y, w, h, color, thickness = params
+                cv2.rectangle(overlay, (x, y), (x + w, y + h), color, thickness)
+            elif elem == "circle":
+                cx, cy, r, color, thickness = params
+                cv2.circle(overlay, (cx, cy), r, color, thickness)
+            elif elem == "line":
+                x1, y1, x2, y2, color, thickness = params
+                cv2.line(overlay, (x1, y1), (x2, y2), color, thickness)
+        result = cv2.addWeighted(screen.copy(), 0, overlay, 0.7, 0)
+        return result
+
+    def match_template(self, screen: np.ndarray, names: list[str] = None, show: bool = False) -> Match:
+        """Match template on screen and return the best match"""
+        if names is None:
+            names = []
+
+        threshold = self.config.get("match_threshold", 0.7)
+        match = Match(name="unknown", loc=(0, 0, 0, 0), val=0.65, roi=screen, screen=screen)
+
         for tmpl in self.get_templates(names):
             x, y, w, h = tmpl.area
             roi = screen[y:y + h, x:x + w]
@@ -137,47 +170,46 @@ class AreaLocator:
                 continue
 
             result = cv2.matchTemplate(roi, img_tmpl, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            val_min, val_max, loc_min, loc_max = cv2.minMaxLoc(result)
 
-            if max_val >= best_match["val"]:
-                loc = (x + max_loc[0], y + max_loc[1], img_tmpl.shape[1], img_tmpl.shape[0])
-                best_match = {"name": tmpl.name, "loc": loc, "val": max_val, "screen": screen}
-            if max_val >= self.config.get("match_threshold", 0.7):
+            if val_max >= match.val:
+                loc = (x + loc_max[0], y + loc_max[1], img_tmpl.shape[1], img_tmpl.shape[0])
+                match = Match(name=tmpl.name, loc=loc, val=val_max, roi=roi, screen=screen)
+            if val_max >= threshold:
                 break
 
-        name = best_match["name"]
+        name = match.name
         log.info(f"Matched {name}")
 
-        # show match result to debug
-        if best_match["val"] <= 0.7 or show:
-            dsp = screen.copy()
+        # Show match result to debug
+        if match.val <= threshold or show:
 
-            # draw all templates
+            # Draw all templates
             if name == "unknown":
-                for tmpl in self.get_templates(names):
-                    x, y, w, h = tmpl.area
-                    cv2.rectangle(dsp, (x, y), (x + w, y + h), (0, 255, 0), 3)
-
-            # draw matched template
+                elems = [("rectangle", (*tmpl.area, (0, 255, 0), 3))
+                         for tmpl in self.get_templates(names)]
+            # Draw matched template
             else:
-                loc = best_match["loc"]
-                top_left = (loc[0], loc[1])
-                bottom_right = (loc[0] + loc[2], loc[1] + loc[3])
-                cv2.rectangle(dsp, top_left, bottom_right, (0, 0, 255), 3)
+                elems = [("rectangle", (*match.loc, (0, 0, 255), 3))]
 
-            # show
-            self._show_borderless_window(f"{name}", best_match["loc"][:2], dsp)
-            cv2.waitKey(5000)
-            cv2.destroyAllWindows()
+            # Show
+            overlay = self._draw_overlay(screen=match.roi, elems=elems)
+            self._show_window(name=name, loc=match.loc[:2], image=overlay)
 
-        return Match(**best_match)
+        return match
 
     def read_bigmap(self, screen: np.ndarray, show: bool = False) -> list[tuple[int, int]] | None:
+        """Read bigmap and return red point coordinates"""
+        # Validate area configuration
+        if "bigmap" not in self.config["areas"]:
+            log.error("Bigmap area not configured")
+            return None
+
         area = self.config["areas"]["bigmap"]["area"]
         x, y, w, h = area
         roi = screen[y:y + h, x:x + w]
 
-        # find all red points
+        # Find all red points
         hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
         red1_lower = np.array([0, 200, 200])
         red1_upper = np.array([9, 255, 255])
@@ -200,36 +232,42 @@ class AreaLocator:
         centers = kmeans.cluster_centers_
         centers = [(int(x + c[0]), int(y + c[1])) for c in centers]
 
-        # show result
+        # Show result
         if show:
-            dsp = screen.copy()
-            for c in centers:
-                cv2.circle(dsp, c, 5, (0, 0, 255), -1)
-            self._show_borderless_window("bigmap", (x, y), dsp)
-            cv2.waitKey(5000)
-            cv2.destroyAllWindows()
+            elems = [("circle", (c, 5, (0, 0, 255), -1)) for c in centers]
+            overlay = self._draw_overlay(screen=screen, elems=elems)
+            self._show_window(name="bigmap", loc=(x, y), image=overlay)
 
         return centers
 
-    def read_minimap(self, screen: np.ndarray) -> dict[str, list[np.ndarray]] | None:
+    def read_minimap(self, screen: np.ndarray, show: bool = False) -> dict[str, list[np.ndarray]] | None:
         """
+        Read minimap and return ship positions and directions
         Returns: {"self": [arr(x, y), arr(dx, dy)],
                   "ally": [arr(x1, y1), arr(x2, y2),...],
                   "enemy": [arr(x1, y1), arr(x2, y2),...]}
         """
+        # Validate area configuration and model availability
+        if "minimap" not in self.config["areas"]:
+            log.error("Minimap area not configured")
+            return None
+
+        if self.model_minimap is None:
+            log.error("Minimap model not loaded")
+            return None
+
         area = self.config["areas"]["minimap"]["area"]
         x, y, w, h = area
         roi = screen[y:y + h, x:x + w]
-        if self.model_minimap is None:
-            return None
 
-        # predict
+        # Predict
         data = defaultdict(list)
         self_conf = 0.0
         self_center = None
         self_kps = None
         result = self.model_minimap.predict(roi, conf=0.5, iou=0.5)[0]
         if result.boxes is None or result.keypoints is None:
+            log.warning("No boxes or keypoints detected in minimap")
             return None
 
         cls_ids = result.boxes.cls.cpu().numpy()
@@ -246,37 +284,44 @@ class AreaLocator:
                 self_center = center
                 self_kps = kpts[i]
         if self_kps is None:
+            log.warning("No self keypoints detected in minimap")
             return None
 
-        # handle keypoints of self
+        # Handle keypoints of self
         bow, stern, port, stbd = [p for p in self_kps[:4]]
         points = np.array([bow, self_center, stern, port, stbd])
         a, b = np.polyfit(points[:, 0], points[:, 1], 1)
         delta = np.array([1.0, a])
         data["self"] = [self_center, delta]
 
-        show = True
         if show:
             frame = result.plot()
-            self._show_borderless_window("minimap", (x, y), frame)
-            cv2.waitKey(3000)
-            cv2.destroyAllWindows()
+            self._show_window(name="minimap", loc=(x, y), image=frame)
 
-        return data
+        return dict(data)
 
-    def read_compass(self, screen: np.ndarray) -> np.ndarray | None:
+    def read_compass(self, screen: np.ndarray, show: bool = False) -> np.ndarray | None:
+        """Read compass and return direction vector"""
+        # Validate area configuration and model availability
+        if "compass" not in self.config["areas"]:
+            log.error("Compass area not configured")
+            return None
+
+        if self.model_compass is None:
+            log.error("Compass model not loaded")
+            return None
+
         area = self.config["areas"]["compass"]["area"]
         x, y, w, h = area
         roi = screen[y:y + h, x:x + w]
-        if self.model_compass is None:
-            return None
 
-        # predict
+        # Predict using the model
         best_conf = 0.0
         best_center = None
         best_kps = None
         result = self.model_compass.predict(roi, conf=0.5, iou=0.5)[0]
         if result.boxes is None or result.keypoints is None:
+            log.warning("No boxes or keypoints detected in compass")
             return None
 
         cls_ids = result.boxes.cls.cpu().numpy()
@@ -291,19 +336,17 @@ class AreaLocator:
                 best_center = xywhs[i][:2]
                 best_kps = kpts[i]
         if best_kps is None:
+            log.warning("No self keypoints detected in compass")
             return None
 
-        # handle keypoints of self
+        # Handle keypoints of self
         bow, port, stbd = [p for p in best_kps[:3]]
         points = np.array([bow, best_center, port, stbd])
         a, b = np.polyfit(points[:, 0], points[:, 1], 1)
         delta = np.array([1.0, a])
 
-        show = True
         if show:
             frame = result.plot()
-            self._show_borderless_window("compass", (x, y), frame)
-            cv2.waitKey(3000)
-            cv2.destroyAllWindows()
+            self._show_window(name="compass", loc=(x, y), image=frame)
 
         return delta

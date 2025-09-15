@@ -6,10 +6,8 @@ import threading
 import tkinter as tk
 import traceback
 
-from src.ArLctr import AreaLocator
 from src.HkMgr import HotkeyManager
 from src.GUI import MainGUI
-from src.WinMgr import WindowManager
 from src.MCtrl import MainController
 
 
@@ -20,12 +18,9 @@ def main():
     hkmgr = HotkeyManager()
     root = tk.Tk()
     gui = MainGUI(root=root, hkmgr=hkmgr, level=log_level)
+    root.protocol("WM_DELETE_WINDOW", gui.on_closing)
     try:
-        arlctr = AreaLocator()
-        title = arlctr.config["title"]
-        region = tuple(arlctr.config["region"])
-        wdmgr = WindowManager(title=title, region=region)
-        mctrl = MainController(arlctr=arlctr, hkmgr=hkmgr, wdmgr=wdmgr)
+        mctrl = MainController(hkmgr=hkmgr)
     except Exception:
         traceback.print_exc()
         sys.exit(1)

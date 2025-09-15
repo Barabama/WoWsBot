@@ -414,9 +414,12 @@ class BotInBattle(BotBase):
             self.sight = (2 * np.pi - angle_rad) % (2 * np.pi)
 
             # handle map_data
-            p_self, polar = map_data["self"]
+            self_data = map_data.get("polar", [])
+            if len(self_data) != 2:
+                return False
+            p_self, polar = self_data
             polar_angle = np.arctan2(polar[0], polar[1])
-            enemies = map_data["enemy"]
+            enemies = map_data.get("enemy", [])
 
             if len(enemies) > 0:
                 enemies = np.array(enemies) - p_self

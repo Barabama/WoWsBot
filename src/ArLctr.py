@@ -29,6 +29,7 @@ class Match:
     name: str
     loc: tuple[int, int, int, int]
     val: float
+    area: tuple[int, int, int, int]
     roi: np.ndarray
     screen: np.ndarray
 
@@ -150,7 +151,7 @@ class AreaLocator:
             elif elem == "line":
                 x1, y1, x2, y2, color, thickness = params
                 cv2.line(overlay, (x1, y1), (x2, y2), color, thickness)
-        result = cv2.addWeighted(screen.copy(), 0, overlay, 0.7, 0)
+        result = cv2.addWeighted(screen.copy(), 1, overlay, 0.3, 0)
         return result
 
     def match_template(self, screen: np.ndarray, names: list[str] = None, show: bool = False) -> Match:
@@ -159,7 +160,8 @@ class AreaLocator:
             names = []
 
         threshold = self.config.get("match_threshold", 0.7)
-        match = Match(name="unknown", loc=(0, 0, 0, 0), val=0.65, roi=screen, screen=screen)
+        match = Match(name="unknown", loc=(0, 0, 0, 0), val=0.65, area=(0, 0, 0, 0),
+                      roi=screen, screen=screen)
 
         for tmpl in self.get_templates(names):
             x, y, w, h = tmpl.area
@@ -174,7 +176,7 @@ class AreaLocator:
 
             if val_max >= match.val:
                 loc = (x + loc_max[0], y + loc_max[1], img_tmpl.shape[1], img_tmpl.shape[0])
-                match = Match(name=tmpl.name, loc=loc, val=val_max, roi=roi, screen=screen)
+                match = Match(name=tmpl.name, loc=loc, val=val_max, area=tmpl.area, roi=roi, screen=screen)
             if val_max >= threshold:
                 break
 
@@ -194,7 +196,7 @@ class AreaLocator:
 
             # Show
             overlay = self._draw_overlay(screen=match.roi, elems=elems)
-            self._show_window(name=name, loc=match.loc[:2], image=overlay)
+            self._show_window(name=name, loc=match.area[:2], image=overlay)
 
         return match
 

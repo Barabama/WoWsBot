@@ -151,12 +151,12 @@
         "flag_up_btn": {
             "name": "flag_up_btn",
             "weight": 1,
-            "area": [700, 400, 300, 80]
+            "area": [780, 400, 200, 240]
         },
         "flag_down_btn": {
             "name": "flag_down_btn",
             "weight": 1,
-            "area": [700, 400, 300, 80]
+            "area": [780, 400, 200, 240]
         },
         "buff_fold_btn": {
             "name": "buff_fold_btn",
@@ -168,8 +168,13 @@
             "weight": 1,
             "area": [800, 360, 130, 40]
         },
-        "buff_down_btn": {
-            "name": "buff_down_btn",
+        "buff_down_btn_1": {
+            "name": "buff_down_btn_1",
+            "weight": 1,
+            "area": [800, 360, 130, 40]
+        },
+        "buff_down_btn_2": {
+            "name": "buff_down_btn_2",
             "weight": 1,
             "area": [800, 360, 130, 40]
         },

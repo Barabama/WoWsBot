@@ -66,10 +66,11 @@ class MainController:
             if should_run:
                 self.tick()
             else:
-                # If we shouldn't run but are currently running, stop the script
+                # If we shouldn't run but are currently running, continue waiting for tasks
                 if self.running:
-                    log.info("Scheduled tasks completed or out of time window, stopping script")
-                    self.hkmgr.script_stop()
+                    log.info("No active tasks, waiting for scheduled tasks")
+                    # Instead of stopping the script, we just wait
+                    time.sleep(1)
         else:
             if self.running:
                 self.on_stop()
@@ -100,9 +101,16 @@ class MainController:
         # Remove expired or completed active tasks
         for id, count in list(self.active_tasks.items()):
             typ, start, end = id
-            if not _is_time_in_range(start, end) or count <= 0:
+            if not _is_time_in_range(start, end) or (count <= 0 and typ != "daily"):
                 log.debug(f"Removing expired/complete task: {id}")
                 self.active_tasks.pop(id)
+            elif count <= 0 and typ == "daily":
+                # For daily tasks, reset the count when time window is still active
+                # This allows the task to repeat the next day
+                original_count = self.scheduled_tasks.get(id, 0)
+                if original_count > 0:
+                    self.active_tasks[id] = original_count
+                    log.debug(f"Reset daily task count: {id} to {original_count}")
 
         # Add scheduled tasks that are now in their time window
         for id, count in list(self.scheduled_tasks.items()):
@@ -120,7 +128,28 @@ class MainController:
 
     def countdown_active_tasks(self):
         if len(self.scheduled_tasks) > 0 and len(self.active_tasks) > 0:
-            self.active_tasks = {id: c - 1 for id, c in self.active_tasks.items()}
+            # Count down all active tasks
+            for id in self.active_tasks:
+                self.active_tasks[id] -= 1
+            
+            # Check if all active non-daily tasks are completed (count <= 0)
+            # Daily tasks don't count towards the completion condition
+            uncompleted_non_daily_tasks = [
+                count for (typ, _, _), count in 
+                [(id, self.active_tasks[id]) for id in self.active_tasks] 
+                if typ != "daily" and count > 0
+            ]
+            
+            # If we have non-daily tasks and they are all completed, mark this as the last battle
+            all_non_daily_tasks = [
+                (typ, count) for (typ, _, _), count in 
+                [(id, self.active_tasks[id]) for id in self.active_tasks] 
+                if typ != "daily"
+            ]
+            
+            if all_non_daily_tasks and not uncompleted_non_daily_tasks:
+                self.last_battle = True
+                log.info("All non-daily scheduled tasks completed. Marking this as the last battle.")
 
     def on_start(self):
         log.info("Script started")
@@ -168,22 +197,19 @@ class MainController:
             log.debug("Currently in battle, should continue running regardless of scheduled tasks")
             return True
 
-        # If we have active scheduled tasks, we should run
-        if self.active_tasks:
-            log.debug("Has active scheduled tasks, should continue running")
+        # If scheduled tasks feature is enabled, check if there are active tasks
+        if self.scheduled_tasks:
+            # If there are active tasks, continue running
+            if self.active_tasks:
+                log.debug("Active tasks found, should continue running")
+                return True
+            else:
+                log.debug("No active tasks, should not continue running")
+                return False
+        else:
+            # If scheduled tasks feature is not enabled, always continue running
+            log.debug("Scheduled tasks not enabled, should continue running")
             return True
-
-        # If we have scheduled tasks but none are active, check if any could become active
-        if self.scheduled_tasks and not self.active_tasks:
-            for id in self.scheduled_tasks:
-                typ, start, end = id
-                if _is_time_in_range(start, end):
-                    log.debug("Scheduled tasks exist and in time window, should continue running")
-                    return True
-
-        # If we're in port and no scheduled tasks are active or could become active, don't run
-        log.debug("In port and no scheduled tasks active, should not continue running")
-        return False
 
     def tick(self):
         """Main execution tick - process current game state and take appropriate actions"""

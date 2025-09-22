@@ -38,6 +38,7 @@ class MainGUI:
         self.create_widgets()
         self.setup_logging(level)
         self.load_user()
+        self.refresh_tasks()
         self.setup_scheduled_tasks()
 
     def on_closing(self):
@@ -143,20 +144,20 @@ class MainGUI:
         win_task.focus_set()
 
         tk.Label(win_task, text="TaskType:").pack(anchor="w", padx=10, pady=5)
-        var_type = tk.StringVar(value="daily")
+        var_type = tk.StringVar(value=task["type"])
         tk.Radiobutton(win_task, text="DailyTask", variable=var_type, value="daily").pack(anchor="w", padx=20, pady=5)
         tk.Radiobutton(win_task, text="SingleTask", variable=var_type, value="single").pack(anchor="w", padx=20, pady=5)
 
         tk.Label(win_task, text="StartTime (HH:MM):").pack(anchor="w", padx=10, pady=5)
-        var_start = tk.StringVar()
+        var_start = tk.StringVar(value=task["start"])
         tk.Entry(win_task, textvariable=var_start).pack(fill=tk.X, padx=10, pady=5)
 
         tk.Label(win_task, text="EndTime (HH:MM):").pack(anchor="w", padx=10, pady=5)
-        var_end = tk.StringVar()
+        var_end = tk.StringVar(value=task["end"])
         tk.Entry(win_task, textvariable=var_end).pack(fill=tk.X, padx=10, pady=5)
 
         tk.Label(win_task, text="BattleCount:").pack(anchor="w", padx=10, pady=5)
-        var_count = tk.IntVar(value=10)
+        var_count = tk.IntVar(value=task["count"])
         tk.Spinbox(win_task, from_=1, to=99, textvariable=var_count).pack(fill=tk.X, padx=10, pady=5)
 
         def _update_task():
@@ -273,7 +274,6 @@ class MainGUI:
         tk.Button(frame_task_btns, text="RemoveTask", command=self.remove_task).pack(side=tk.LEFT, padx=5)
         tk.Button(frame_task_btns, text="SaveTasks", command=self.save_user).pack(side=tk.LEFT, padx=5)
 
-        self.refresh_tasks()
         self.var_scheduled_tasks_enabled.set(self.scheduled_tasks.get("enabled", False))
 
     def setup_logging(self, level: str = "INFO"):

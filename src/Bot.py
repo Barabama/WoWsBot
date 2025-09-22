@@ -278,7 +278,7 @@ class BotInPort(BotBase):
             flag, match = self._match(names=["buff_up_btn"])
             if flag:
                 return flag
-            return self._match_click(names=["buff_down_btn"])
+            return self._match_click(names=["buff_down_btn_1", "buff_down_btn_2"])
         except Exception as e:
             log.error(traceback.format_exc())
             return False

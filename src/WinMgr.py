@@ -44,6 +44,7 @@ class WindowManager:
         x, y, w, h = self._region
         win32gui.SetWindowPos(hwnd, win32con.HWND_TOP, x, y, w, h, win32con.SWP_SHOWWINDOW)
         log.info(f"Set window to borderless")
+        time.sleep(0.2)
 
     def check_window(self):
         if not self.window.isActive:

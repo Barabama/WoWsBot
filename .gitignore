@@ -19,4 +19,4 @@ training/
 # Tests
 tests/
 
-resources/user.json
+# resources/user.json

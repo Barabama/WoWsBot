@@ -1,0 +1,15 @@
+{
+  "language": "zh_cn",
+  "title": "《战舰世界》",
+  "scheduled_tasks": {
+    "enabled": true,
+    "tasks": [
+      {
+        "type": "daily",
+        "start": "22:00",
+        "end": "23:00",
+        "count": 20
+      }
+    ]
+  }
+}

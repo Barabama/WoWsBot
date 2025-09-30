@@ -68,10 +68,12 @@ class MainGUI:
                 self.entry_title.insert(0, title)
 
             self.scheduled_tasks = user["scheduled_tasks"]
+            self.var_scheduled_tasks_enabled.set(self.scheduled_tasks.get("enabled", False))
         except (FileNotFoundError, KeyError):
             self.var_lang.set("zh_cn")
             self.var_title.set("《战舰世界》")
             self.scheduled_tasks = {"enabled": False, "tasks": []}
+            self.var_scheduled_tasks_enabled.set(False)
             self.save_user()
 
     def save_user(self):
@@ -89,20 +91,15 @@ class MainGUI:
         for t in self.scheduled_tasks.get("tasks", []):
             self.listbox_tasks.insert(
                 tk.END,
-                f"{t['type']} - {t['start']} to {t['end']} ({t['count']} times)"
+                f"{t['start']} to {t['end']} ({t['count']} battles)"
             )
 
     def add_task(self):
         win_task = tk.Toplevel(self.root)
         win_task.title("Add Task")
-        win_task.geometry("250x400+1500+50")
+        win_task.geometry("250x350+1500+50")
         win_task.grab_set()
         win_task.focus_set()
-
-        tk.Label(win_task, text="TaskType:").pack(anchor="w", padx=10, pady=5)
-        var_type = tk.StringVar(value="daily")
-        tk.Radiobutton(win_task, text="DailyTask", variable=var_type, value="daily").pack(anchor="w", padx=20, pady=5)
-        tk.Radiobutton(win_task, text="SingleTask", variable=var_type, value="single").pack(anchor="w", padx=20, pady=5)
 
         tk.Label(win_task, text="StartTime (HH:MM):").pack(anchor="w", padx=10, pady=5)
         var_start = tk.StringVar()
@@ -118,8 +115,7 @@ class MainGUI:
 
         # save task
         def _save_task():
-            task = {"type": var_type.get(),
-                    "start": var_start.get(),
+            task = {"start": var_start.get(),
                     "end": var_end.get(),
                     "count": var_count.get()}
             self.scheduled_tasks["tasks"].append(task)
@@ -139,14 +135,9 @@ class MainGUI:
 
         win_task = tk.Toplevel(self.root)
         win_task.title("Edit Task")
-        win_task.geometry("250x400+1500+50")
+        win_task.geometry("250x350+1500+50")
         win_task.grab_set()
         win_task.focus_set()
-
-        tk.Label(win_task, text="TaskType:").pack(anchor="w", padx=10, pady=5)
-        var_type = tk.StringVar(value=task["type"])
-        tk.Radiobutton(win_task, text="DailyTask", variable=var_type, value="daily").pack(anchor="w", padx=20, pady=5)
-        tk.Radiobutton(win_task, text="SingleTask", variable=var_type, value="single").pack(anchor="w", padx=20, pady=5)
 
         tk.Label(win_task, text="StartTime (HH:MM):").pack(anchor="w", padx=10, pady=5)
         var_start = tk.StringVar(value=task["start"])
@@ -161,8 +152,7 @@ class MainGUI:
         tk.Spinbox(win_task, from_=1, to=99, textvariable=var_count).pack(fill=tk.X, padx=10, pady=5)
 
         def _update_task():
-            task.update({"type": var_type.get(),
-                         "start": var_start.get(),
+            task.update({"start": var_start.get(),
                          "end": var_end.get(),
                          "count": var_count.get()})
             self.refresh_tasks()

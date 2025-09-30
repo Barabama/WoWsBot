@@ -15,6 +15,134 @@ from .Bot import BotInPort, BotInBattle
 log = logging.getLogger(__name__)
 
 
+class TaskManager:
+    """
+    Simplified task manager that handles scheduled tasks with unified logic
+    """
+    def __init__(self):
+        self.enabled = False
+        self.tasks = []
+        self.battle_counts = {}  # Track battles per task
+        
+    def load_tasks(self, data: dict):
+        """Load tasks from user configuration"""
+        self.enabled = data.get("enabled", False)
+        self.tasks = []
+        self.battle_counts = {}
+        
+        if not self.enabled:
+            return
+            
+        for task_data in data.get("tasks", []):
+            try:
+                # Parse task data
+                start_str = task_data["start"]
+                end_str = task_data["end"]
+                
+                # Ensure time format includes minutes
+                if ":" not in start_str:
+                    start_str = f"{start_str}:00"
+                if ":" not in end_str:
+                    end_str = f"{end_str}:00"
+                    
+                start_time = datetime.strptime(start_str, "%H:%M").time()
+                end_time = datetime.strptime(end_str, "%H:%M").time()
+                max_battles = int(task_data["count"])
+                
+                task = {
+                    "start": start_time,
+                    "end": end_time,
+                    "max_battles": max_battles
+                }
+                
+                self.tasks.append(task)
+                # Initialize battle count for this task
+                task_id = id(task)
+                self.battle_counts[task_id] = 0
+                
+            except (ValueError, KeyError) as e:
+                log.warning(f"Invalid scheduled task {task_data}, error: {e}")
+                continue
+    
+    def is_running_time(self):
+        """Check if current time is within any task's running time"""
+        if not self.enabled or not self.tasks:
+            return False
+            
+        current_time = datetime.now().time()
+        
+        for task in self.tasks:
+            start_time = task["start"]
+            end_time = task["end"]
+            
+            # Handle time ranges that cross midnight
+            if start_time <= end_time:
+                if start_time <= current_time <= end_time:
+                    return True
+            else:  # Crosses midnight
+                if current_time >= start_time or current_time <= end_time:
+                    return True
+                    
+        return False
+    
+    def should_continue_running(self, in_battle=False):
+        """
+        Determine if script should continue running based on tasks and battle status
+        If in battle, continue regardless of time constraints
+        """
+        if not self.enabled:
+            return True
+            
+        if in_battle:
+            return True
+            
+        # Check if we're in any task's running time
+        return self.is_running_time()
+    
+    def record_battle(self):
+        """Record that a battle has been completed"""
+        if not self.enabled:
+            return
+            
+        current_time = datetime.now().time()
+        # Increment battle count for all active tasks
+        for task in self.tasks:
+            task_id = id(task)
+            start_time = task["start"]
+            end_time = task["end"]
+            
+            # Check if task is currently active
+            if start_time <= end_time:
+                is_active = start_time <= current_time <= end_time
+            else:  # Crosses midnight
+                is_active = current_time >= start_time or current_time <= end_time
+                
+            if is_active:
+                self.battle_counts[task_id] = self.battle_counts.get(task_id, 0) + 1
+    
+    def is_finished_all_tasks(self):
+        """Check if all tasks have reached their battle limit"""
+        if not self.enabled or not self.tasks:
+            return False
+            
+        for task in self.tasks:
+            task_id = id(task)
+            battles_done = self.battle_counts.get(task_id, 0)
+            max_battles = task["max_battles"]
+            
+            # If any task hasn't reached its limit, we're not finished
+            if battles_done < max_battles:
+                return False
+                
+        # All tasks have reached their limits
+        return True
+        
+    def reset_battle_counts(self):
+        """Reset battle counts for all tasks"""
+        for task_id in self.battle_counts:
+            self.battle_counts[task_id] = 0
+
+
 def _is_time_in_range(time_start, time_end):
     """Check if a given time falls within a specified time range"""
     time_curr = datetime.now().time()
@@ -29,11 +157,8 @@ class MainController:
         self.hkmgr = hkmgr
         self.running = False
         self.event_stop = threading.Event()
-        self.last_battle = False
-        self.scheduled_tasks = {}
-        self.active_tasks = {}
+        self.task_manager = TaskManager()  # Use simplified task manager
         self.in_battle = False  # Track if we're currently in battle
-        self.tasks_counted_down = False  # Track if we've counted down tasks for current battle cycle
 
     def run(self):
         """Main controller loop"""
@@ -56,100 +181,21 @@ class MainController:
             if not self.running:
                 self.on_start()
 
-            # Process scheduled tasks
-            self.check_tasks()
-
             # Determine if we should continue running based on various conditions
-            should_run = self._should_continue_running()
+            should_run = self.task_manager.should_continue_running(self.in_battle)
             log.debug(f"Should continue running: {should_run}, in_battle: {self.in_battle}")
 
             if should_run:
                 self.tick()
             else:
-                # If we shouldn't run but are currently running, continue waiting for tasks
+                # If we shouldn't run but are currently running, stop the script
                 if self.running:
-                    log.info("No active tasks, waiting for scheduled tasks")
-                    # Instead of stopping the script, we just wait
-                    time.sleep(1)
+                    log.info("No active tasks or outside scheduled time, stopping script")
+                    self.event_stop.set()
         else:
             if self.running:
                 self.on_stop()
             time.sleep(1)  # Slow down when not running
-
-    def load_tasks(self, data: dict):
-        if not data.get("enabled", False):
-            return
-        for task in data.get("tasks", []):
-            try:
-                start_str = task["start"]
-                end_str = task["end"]
-                if ":" not in start_str:
-                    start_str = f"{start_str}:00"
-                if ":" not in end_str:
-                    end_str = f"{end_str}:00"
-                start = datetime.strptime(start_str, "%H:%M").time()
-                end = datetime.strptime(end_str, "%H:%M").time()
-                typ = str(task["type"])
-                count = int(task["count"])
-                self.scheduled_tasks[(typ, start, end)] = count
-            except (ValueError, KeyError) as e:
-                log.warning(f"Invalid scheduled task {task}, error: {e}")
-                continue
-
-    def check_tasks(self):
-        """Check and update scheduled tasks status"""
-        # Remove expired or completed active tasks
-        for id, count in list(self.active_tasks.items()):
-            typ, start, end = id
-            if not _is_time_in_range(start, end) or (count <= 0 and typ != "daily"):
-                log.debug(f"Removing expired/complete task: {id}")
-                self.active_tasks.pop(id)
-            elif count <= 0 and typ == "daily":
-                # For daily tasks, reset the count when time window is still active
-                # This allows the task to repeat the next day
-                original_count = self.scheduled_tasks.get(id, 0)
-                if original_count > 0:
-                    self.active_tasks[id] = original_count
-                    log.debug(f"Reset daily task count: {id} to {original_count}")
-
-        # Add scheduled tasks that are now in their time window
-        for id, count in list(self.scheduled_tasks.items()):
-            typ, start, end = id
-            if not _is_time_in_range(start, end):
-                continue
-
-            log.debug(f"Activating scheduled task: {id}")
-            self.active_tasks[id] = count
-
-            # Single-use tasks are removed after activation
-            if typ == "single":
-                log.debug(f"Removing single-use task: {id}")
-                self.scheduled_tasks.pop(id)
-
-    def countdown_active_tasks(self):
-        if len(self.scheduled_tasks) > 0 and len(self.active_tasks) > 0:
-            # Count down all active tasks
-            for id in self.active_tasks:
-                self.active_tasks[id] -= 1
-            
-            # Check if all active non-daily tasks are completed (count <= 0)
-            # Daily tasks don't count towards the completion condition
-            uncompleted_non_daily_tasks = [
-                count for (typ, _, _), count in 
-                [(id, self.active_tasks[id]) for id in self.active_tasks] 
-                if typ != "daily" and count > 0
-            ]
-            
-            # If we have non-daily tasks and they are all completed, mark this as the last battle
-            all_non_daily_tasks = [
-                (typ, count) for (typ, _, _), count in 
-                [(id, self.active_tasks[id]) for id in self.active_tasks] 
-                if typ != "daily"
-            ]
-            
-            if all_non_daily_tasks and not uncompleted_non_daily_tasks:
-                self.last_battle = True
-                log.info("All non-daily scheduled tasks completed. Marking this as the last battle.")
 
     def on_start(self):
         log.info("Script started")
@@ -157,7 +203,7 @@ class MainController:
         self.event_stop.clear()
 
         self.arlctr = AreaLocator()
-        self.load_tasks(self.arlctr.user["scheduled_tasks"])
+        self.task_manager.load_tasks(self.arlctr.user["scheduled_tasks"])
 
         self.wdmgr = WindowManager(region=tuple(self.arlctr.config["region"]),
                                    title=self.arlctr.user["title"])
@@ -171,45 +217,12 @@ class MainController:
         self.running = False
         self.event_stop.set()
 
-        self.last_battle = False
-        self.scheduled_tasks = {}
-        self.active_tasks = {}
         self.in_battle = False
-        self.tasks_counted_down = False
+        self.task_manager.reset_battle_counts()
         del self.arlctr
         del self.wdmgr
         del self.portbot
         del self.battlebot
-
-    def _should_continue_running(self):
-        """
-        Determine if the script should continue running based on hotkey and scheduled tasks status.
-        If we're in battle, continue until battle ends regardless of scheduled tasks.
-        If we're in port, follow scheduled tasks strictly.
-        """
-        # If hotkey is off, we shouldn't run at all
-        if not self.hkmgr.running:
-            log.debug("Hotkey is off, should not continue running")
-            return False
-
-        # If we're in battle, continue regardless of scheduled tasks status
-        if self.in_battle:
-            log.debug("Currently in battle, should continue running regardless of scheduled tasks")
-            return True
-
-        # If scheduled tasks feature is enabled, check if there are active tasks
-        if self.scheduled_tasks:
-            # If there are active tasks, continue running
-            if self.active_tasks:
-                log.debug("Active tasks found, should continue running")
-                return True
-            else:
-                log.debug("No active tasks, should not continue running")
-                return False
-        else:
-            # If scheduled tasks feature is not enabled, always continue running
-            log.debug("Scheduled tasks not enabled, should continue running")
-            return True
 
     def tick(self):
         """Main execution tick - process current game state and take appropriate actions"""
@@ -261,37 +274,25 @@ class MainController:
     def _handle_battle_preparation(self):
         """Handle states when battle is loading or in queue"""
         log.info("Waiting for battle to start")
-        # If we're entering battle from port (not already in battle)
-        if not self.in_battle:
-            self.tasks_counted_down = False
         self.in_battle = True
 
     def _handle_battle_start(self, match):
         """Handle the start of a battle"""
         log.info("Battle started - executing battle logic")
-        # If we're entering battle from port (not already in battle)
-        if not self.in_battle:
-            self.tasks_counted_down = False
-
         self.in_battle = True
-
         self.battlebot.tick(match=match)
-
-        # Countdown tasks only once per battle cycle
-        if not self.tasks_counted_down:
-            self.countdown_active_tasks()
-            self.tasks_counted_down = True
 
     def _handle_battle_end(self):
         """Handle the end of a battle"""
         log.info("Battle ended - executing post-battle logic")
         self.in_battle = False
-        self.tasks_counted_down = False  # Reset for next battle cycle
 
         self.battlebot.quit_battle()
-
-        if self.last_battle:
-            log.info("Last battle completed, setting stop event")
+        self.task_manager.record_battle()
+        
+        # Check if we've finished all scheduled tasks
+        if self.task_manager.is_finished_all_tasks():
+            log.info("All scheduled tasks completed, stopping script")
             self.event_stop.set()
 
     def _handle_port_state(self, match):
@@ -299,7 +300,5 @@ class MainController:
         # Only log if we're transitioning from battle to port
         if self.in_battle:
             log.info("Returned to port - executing port logic")
-
         self.in_battle = False
-        self.tasks_counted_down = False  # Reset for next battle cycle
         self.portbot.tick(match=match)

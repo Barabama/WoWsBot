@@ -2,9 +2,9 @@
     "region": [0, 0, 1440, 900],
 
     "match_threshold": 0.7,
-    "model_compass": "yolo11n_pose_compass.pt",
-    "model_minimap": "yolo11n_pose_minimap.pt",
-    "model_warship": "yolo11n_pose_warship.pt",
+    "model_compass": "yolo11s_pose_compass.pt",
+    "model_minimap": "yolo11s_pose_minimap.pt",
+    "model_warship": "yolo11s_pose_warship.pt",
 
     "positions": {
         "ship_in_port": [130, 740],
@@ -33,7 +33,7 @@
         },
         "minimap": {
             "name": "minimap",
-            "area": [1080, 540, 360, 360]
+            "area": [1090, 550, 350, 350]
         },
         "compass": {
             "name": "compass",
@@ -45,17 +45,17 @@
         "map_mode": {
             "name": "map_mode",
             "weight": 13.6,
-            "area": [1100, 420, 150, 50]
+            "area": [1030, 150, 330, 330]
         },
         "b_btn": {
             "name": "b_btn",
             "weight": 13.6,
-            "area": [1170, 180, 30, 30]
+            "area": [1030, 150, 330, 330]
         },
         "autopilot_on": {
             "name": "autopilot_on",
             "weight": 13.4,
-            "area": [275, 660, 90, 30]
+            "area": [250, 650, 140, 60]
         },
 
         "shift_btn": {
@@ -71,7 +71,7 @@
         "battle_began": {
             "name": "battle_began",
             "weight": 13,
-            "area": [9, 605, 20, 20]
+            "area": [0, 570, 50, 100]
         },
 
         "battle_btn": {
@@ -92,17 +92,17 @@
         "battle_mission": {
             "name": "battle_mission",
             "weight": 12.6,
-            "area": [0, 0, 1440, 100]
+            "area": [320, 0, 800, 100]
         },
         "battle_member": {
             "name": "battle_member",
             "weight": 12.6,
-            "area": [0, 0, 1440, 100]
+            "area": [320, 0, 800, 100]
         },
         "battle_tips": {
             "name": "battle_tips",
             "weight": 12.4,
-            "area": [0, 0, 1440, 100]
+            "area": [320, 0, 800, 100]
         },
         
         "rewards_btn": {

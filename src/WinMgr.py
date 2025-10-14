@@ -44,7 +44,7 @@ class WindowManager:
         x, y, w, h = self._region
         win32gui.SetWindowPos(hwnd, win32con.HWND_TOP, x, y, w, h, win32con.SWP_SHOWWINDOW)
         log.info(f"Set window to borderless")
-        time.sleep(0.2)
+        time.sleep(0.5)
 
     def check_window(self):
         if not self.window.isActive:
@@ -57,7 +57,7 @@ class WindowManager:
             self.window.resizeTo(w, h)
             log.info("Reset window size")
 
-    def capture_screen(self, delay=0.2) -> np.ndarray:
+    def capture_screen(self, delay=0.5) -> np.ndarray:
         self.check_window()
         time.sleep(delay)
         x, y, w, h = self._region

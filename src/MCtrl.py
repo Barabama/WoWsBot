@@ -19,62 +19,63 @@ class TaskManager:
     """
     Simplified task manager that handles scheduled tasks with unified logic
     """
+
     def __init__(self):
         self.enabled = False
         self.tasks = []
         self.battle_counts = {}  # Track battles per task
-        
+
     def load_tasks(self, data: dict):
         """Load tasks from user configuration"""
         self.enabled = data.get("enabled", False)
         self.tasks = []
         self.battle_counts = {}
-        
+
         if not self.enabled:
             return
-            
+
         for task_data in data.get("tasks", []):
             try:
                 # Parse task data
                 start_str = task_data["start"]
                 end_str = task_data["end"]
-                
+
                 # Ensure time format includes minutes
                 if ":" not in start_str:
                     start_str = f"{start_str}:00"
                 if ":" not in end_str:
                     end_str = f"{end_str}:00"
-                    
+
                 start_time = datetime.strptime(start_str, "%H:%M").time()
                 end_time = datetime.strptime(end_str, "%H:%M").time()
                 max_battles = int(task_data["count"])
-                
+
                 task = {
                     "start": start_time,
                     "end": end_time,
                     "max_battles": max_battles
                 }
-                
+
                 self.tasks.append(task)
                 # Initialize battle count for this task
                 task_id = id(task)
                 self.battle_counts[task_id] = 0
-                
+
             except (ValueError, KeyError) as e:
                 log.warning(f"Invalid scheduled task {task_data}, error: {e}")
                 continue
-    
+
     def is_running_time(self):
         """Check if current time is within any task's running time"""
         if not self.enabled or not self.tasks:
             return False
-            
+
         current_time = datetime.now().time()
-        
+
         for task in self.tasks:
             start_time = task["start"]
             end_time = task["end"]
-            
+
             # Handle time ranges that cross midnight
             if start_time <= end_time:
                 if start_time <= current_time <= end_time:
@@ -82,9 +83,9 @@ class TaskManager:
             else:  # Crosses midnight
                 if current_time >= start_time or current_time <= end_time:
                     return True
-                    
+
         return False
-    
+
     def should_continue_running(self, in_battle=False):
         """
         Determine if script should continue running based on tasks and battle status
@@ -92,64 +93,55 @@ class TaskManager:
         """
         if not self.enabled:
             return True
-            
+
         if in_battle:
             return True
-            
+
         # Check if we're in any task's running time
         return self.is_running_time()
-    
+
     def record_battle(self):
         """Record that a battle has been completed"""
         if not self.enabled:
             return
-            
+
         current_time = datetime.now().time()
         # Increment battle count for all active tasks
         for task in self.tasks:
             task_id = id(task)
             start_time = task["start"]
             end_time = task["end"]
-            
+
             # Check if task is currently active
             if start_time <= end_time:
                 is_active = start_time <= current_time <= end_time
             else:  # Crosses midnight
                 is_active = current_time >= start_time or current_time <= end_time
-                
+
             if is_active:
                 self.battle_counts[task_id] = self.battle_counts.get(task_id, 0) + 1
-    
+
     def is_finished_all_tasks(self):
         """Check if all tasks have reached their battle limit"""
         if not self.enabled or not self.tasks:
             return False
-            
+
         for task in self.tasks:
             task_id = id(task)
             battles_done = self.battle_counts.get(task_id, 0)
             max_battles = task["max_battles"]
-            
+
             # If any task hasn't reached its limit, we're not finished
             if battles_done < max_battles:
                 return False
-                
+
         # All tasks have reached their limits
         return True
-        
+
     def reset_battle_counts(self):
         """Reset battle counts for all tasks"""
         for task_id in self.battle_counts:
             self.battle_counts[task_id] = 0
-
-
-def _is_time_in_range(time_start, time_end):
-    """Check if a given time falls within a specified time range"""
-    time_curr = datetime.now().time()
-    if time_start <= time_end:
-        return time_start <= time_curr <= time_end
-    else:
-        return time_curr >= time_start or time_curr <= time_end
 
 
 class MainController:
@@ -289,7 +281,7 @@ class MainController:
 
         self.battlebot.quit_battle()
         self.task_manager.record_battle()
-        
+
         # Check if we've finished all scheduled tasks
         if self.task_manager.is_finished_all_tasks():
             log.info("All scheduled tasks completed, stopping script")

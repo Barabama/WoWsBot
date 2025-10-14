@@ -15,4 +15,5 @@ dependencies = [
     "rapidocr-onnxruntime",
     "scikit-learn",
     "ultralytics",
+    "onnx",
 ]

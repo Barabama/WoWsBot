@@ -333,7 +333,7 @@ class BotInBattle(BotBase):
 
         self.show = log.level == logging.DEBUG
         self.timer_atpl = datetime.now()
-        self.interval_atpl = 100
+        self.interval_atpl = 50
         self.sight = 0.0
         self.enemies: list[tuple[float, float]] = [(0.0, 0.0)]
         self.sens_wide = 168 / (np.pi * 2)
@@ -397,8 +397,10 @@ class BotInBattle(BotBase):
             delta = self.arlctr.read_compass(screen=self.screen, show=self.show)
             map_data = self.arlctr.read_minimap(screen=self.screen, show=self.show)
             if delta is None:
+                log.warning("Delta in compass not found")
                 return False
             if map_data is None:
+                log.warning("Map data not found")
                 return False
 
             # calculate sight
@@ -414,10 +416,7 @@ class BotInBattle(BotBase):
             self.sight = (2 * np.pi - angle_rad) % (2 * np.pi)
 
             # handle map_data
-            self_data = map_data.get("polar", [])
-            if len(self_data) != 2:
-                return False
-            p_self, polar = self_data
+            p_self, polar = map_data.get("self", [])
             polar_angle = np.arctan2(polar[0], polar[1])
             enemies = map_data.get("enemy", [])
 
@@ -430,6 +429,7 @@ class BotInBattle(BotBase):
                 self.enemies = [(float(d), float(r)) for d, r in zip(dists, rads)]
                 return True
             else:
+                log.info("No enemy found")
                 self.enemies = []
                 return False
 
@@ -444,7 +444,7 @@ class BotInBattle(BotBase):
         """Search for the nearest enemy"""
         self.enemies.sort(key=lambda x: x[0])
         dist, rad = self.enemies[0]
-        log.info(f"Enemy found at distance {dist:.2f}, angle {np.rad2deg(rad):.2f}")
+        log.info(f"Cloest enemy found at distance {dist:.2f}, angle {np.rad2deg(rad):.2f}")
         log.info(f"Self sight {np.rad2deg(self.sight):.2f}")
         diff = (rad - self.sight) % (2 * np.pi)
         pixel = round(diff * self.sens_wide)

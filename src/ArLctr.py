@@ -138,23 +138,36 @@ class AreaLocator:
         thread.join(timeout=3)
 
     def _draw_overlay(self, screen: np.ndarray, elems: list[tuple[str, tuple]]) -> np.ndarray:
-        """Draw overlay elements on the screen"""
-        overlay = screen.copy()
+        """
+        Draw overlay elements with transparent background
+        This creates a truly transparent background where only the drawn elements are visible
+        """
+        overlay = np.zeros((screen.shape[0], screen.shape[1], 4), dtype=np.uint8)
 
         for elem, params in elems:
             if elem == "rectangle":
                 x, y, w, h, color, thickness = params
-                cv2.rectangle(overlay, (x, y), (x + w, y + h), color, thickness)
+                cv2.rectangle(overlay, (x, y), (x + w, y + h), (*color, 255), thickness)
             elif elem == "circle":
                 cx, cy, r, color, thickness = params
-                cv2.circle(overlay, (cx, cy), r, color, thickness)
+                cv2.circle(overlay, (cx, cy), r, (*color, 255), thickness)
             elif elem == "line":
                 x1, y1, x2, y2, color, thickness = params
-                cv2.line(overlay, (x1, y1), (x2, y2), color, thickness)
-        result = cv2.addWeighted(screen.copy(), 1, overlay, 0.3, 0)
+                cv2.line(overlay, (x1, y1), (x2, y2), (*color, 255), thickness)
+
+        mask = overlay[:, :, 3]
+        mask_inv = cv2.bitwise_not(mask)
+
+        background = cv2.bitwise_and(screen, screen, mask=mask_inv)
+
+        foreground = overlay[:, :, :3]
+        foreground = cv2.bitwise_and(foreground, foreground, mask=mask)
+
+        result = cv2.add(background, foreground)
         return result
 
-    def match_template(self, screen: np.ndarray, names: list[str] = None, show: bool = False) -> Match:
+    def match_template(self, screen: np.ndarray, names: list[str] | None = None,
+                       show: bool = False) -> Match:
         """Match template on screen and return the best match"""
         if names is None:
             names = []
@@ -235,8 +248,9 @@ class AreaLocator:
         centers = [(int(x + c[0]), int(y + c[1])) for c in centers]
 
         # Show result
+        show = True
         if show:
-            elems = [("circle", (c, 5, (0, 0, 255), -1)) for c in centers]
+            elems = [("circle", (*c, 5, (0, 0, 255), -1)) for c in centers]
             overlay = self._draw_overlay(screen=screen, elems=elems)
             self._show_window(name="bigmap", loc=(x, y), image=overlay)
 
@@ -296,6 +310,7 @@ class AreaLocator:
         delta = np.array([1.0, a])
         data["self"] = [self_center, delta]
 
+        show = True
         if show:
             frame = result.plot()
             self._show_window(name="minimap", loc=(x, y), image=frame)
@@ -347,6 +362,7 @@ class AreaLocator:
         a, b = np.polyfit(points[:, 0], points[:, 1], 1)
         delta = np.array([1.0, a])
 
+        show = True
         if show:
             frame = result.plot()
             self._show_window(name="compass", loc=(x, y), image=frame)

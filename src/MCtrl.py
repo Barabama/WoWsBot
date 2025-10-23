@@ -28,6 +28,8 @@ class TaskManager:
         self.tasks = []
         self.battle_counts = {}  # Track battles per task
         self._task_ids = []  # Track task IDs for consistent counting
+        # allow injecting time provider for easier testing (returns datetime)
+        self._now = datetime.now
 
     def load_tasks(self, data: dict):
         """Load tasks from user configuration"""
@@ -53,7 +55,9 @@ class TaskManager:
 
                 start_time = datetime.strptime(start_str, "%H:%M").time()
                 end_time = datetime.strptime(end_str, "%H:%M").time()
-                max_battles = int(task_data["count"])
+                # Support both 'max_battles' (preferred) and legacy 'count'
+                raw_max = task_data.get("max_battles", task_data.get("count", 0))
+                max_battles = int(raw_max)
 
                 task = {
                     "start": start_time,
@@ -76,7 +80,7 @@ class TaskManager:
         if not self.enabled or not self.tasks:
             return False
 
-        current_time = datetime.now().time()
+        current_time = self._now().time()
 
         for task in self.tasks:
             start_time = task["start"]
@@ -92,51 +96,70 @@ class TaskManager:
 
         return False
 
+    def _is_task_active(self, task: dict, current_time) -> bool:
+        """Helper: return True if given task is active at current_time"""
+        start_time = task["start"]
+        end_time = task["end"]
+        if start_time <= end_time:
+            return start_time <= current_time <= end_time
+        else:  # Crosses midnight
+            return current_time >= start_time or current_time <= end_time
+
     def should_continue_running(self, in_battle=False):
         """
         Determine if script should continue running based on tasks and battle status
         If in battle, continue regardless of time constraints
         """
+        # If scheduling is disabled, allow continuous running
         if not self.enabled:
             return True
 
+        # If we're currently in a battle, do not interrupt
         if in_battle:
             return True
 
-        # Check if we're in any task's running time
-        return self.is_running_time()
+        # If current time is not in any task time window, do not run
+        if not self.is_running_time():
+            return False
+
+        current_time = self._now().time()
+        # Continue running only if there exists at least one active task
+        # that still has remaining battle quota
+        for i, task in enumerate(self.tasks):
+            if not self._is_task_active(task, current_time):
+                continue
+
+            task_id = self._task_ids[i] if i < len(self._task_ids) else i
+            battles_done = self.battle_counts.get(task_id, 0)
+            max_battles = int(task.get("max_battles", 0))
+
+            if battles_done < max_battles:
+                return True
+
+        return False
 
     def record_battle(self):
         """Record that a battle has been completed"""
         if not self.enabled:
             return
-
-        current_time = datetime.now().time()
+        current_time = self._now().time()
         # Increment battle count for all active tasks
         for i, task in enumerate(self.tasks):
+            if not self._is_task_active(task, current_time):
+                continue
+
             task_id = self._task_ids[i] if i < len(self._task_ids) else i
-            start_time = task["start"]
-            end_time = task["end"]
-
-            # Check if task is currently active
-            if start_time <= end_time:
-                is_active = start_time <= current_time <= end_time
-            else:  # Crosses midnight
-                is_active = current_time >= start_time or current_time <= end_time
-
-            if is_active:
-                self.battle_counts[task_id] = self.battle_counts.get(task_id, 0) + 1
-                log.debug(f"Task {task_id} recorded battle. Count now: {self.battle_counts[task_id]}")
+            self.battle_counts[task_id] = self.battle_counts.get(task_id, 0) + 1
+            log.debug(f"Task {task_id} recorded battle. Count now: {self.battle_counts[task_id]}")
 
     def is_finished_all_tasks(self):
         """Check if all tasks have reached their battle limit"""
         if not self.enabled or not self.tasks:
             return False
-
         for i, task in enumerate(self.tasks):
             task_id = self._task_ids[i] if i < len(self._task_ids) else i
             battles_done = self.battle_counts.get(task_id, 0)
-            max_battles = task["max_battles"]
+            max_battles = int(task.get("max_battles", 0))
 
             # If any task hasn't reached its limit, we're not finished
             if battles_done < max_battles:
@@ -293,6 +316,12 @@ class MainController:
                 if self.stop_event.is_set() or not self.hkmgr.running:
                     break
 
+                # Check scheduled tasks: stop instance if not allowed to run now
+                if not inst.task_manager.should_continue_running(in_battle=inst.in_battle):
+                    log.info(f"Instance {inst.idx} scheduled tasks disallow running now or quota exhausted, stopping")
+                    inst.event_stop.set()
+                    continue
+
                 # Capture screen
                 if inst.wdmgr is None:
                     continue
@@ -363,5 +392,12 @@ class MainController:
         if instance.in_battle:
             log.info(f"Instance {instance.idx} returned to port")
         instance.in_battle = False
+
+        # Stop if all tasks are done
+        if not instance.task_manager.should_continue_running(in_battle=instance.in_battle):
+            log.info(f"Instance {instance.idx} not allowed to start new battles now or quota exhausted, stopping")
+            instance.event_stop.set()
+            return
+
         if instance.portbot:
             instance.portbot.tick(match=match)

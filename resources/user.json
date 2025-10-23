@@ -1,28 +1,25 @@
 {
-  "language": "zh_cn",
-  "title": "《战舰世界》",
+  "title_lang_map": {
+    "World of Warships": "en_us",
+    "《战舰世界》": "zh_cn"
+  },
   "scheduled_tasks": {
     "enabled": true,
     "tasks": [
       {
-        "type": "daily",
-        "start": "18:00",
-        "end": "20:00",
-        "count": 40
+        "start": "12:00",
+        "end": "17:00",
+        "count": 300
       },
       {
-        "start": "22:00",
+        "type": "daily",
+        "start": "18:00",
         "end": "23:00",
-        "count": 20
+        "count": 300
       },
       {
         "start": "0:00",
         "end": "2:00",
-        "count": 40
-      },
-      {
-        "start": "12:00",
-        "end": "17:00",
         "count": 100
       }
     ]

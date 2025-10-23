@@ -33,6 +33,7 @@ class MainGUI:
 
         self.user_path = "resources/user.json"
         self.scheduled_tasks = {"enabled": False, "tasks": []}
+        self.title_lang_map = {}
         self.setup_window()
 
         self.create_widgets()
@@ -48,38 +49,32 @@ class MainGUI:
     def on_scheduled_tasks_enabled(self):
         self.scheduled_tasks["enabled"] = self.var_scheduled_tasks_enabled.get()
 
-    def get_actual_title(self):
-        title = self.entry_title.get().strip()
-        return title if title else self.var_title.get()
-
     def load_user(self):
         try:
             with open(self.user_path, "r", encoding="utf-8") as f:
                 user = json.load(f)
-            self.var_lang.set(user["language"])
-
-            title = user["title"]
-            if title in ["《战舰世界》", "World of Warships"]:
-                self.var_title.set(title)
-                self.entry_title.delete(0, tk.END)
-            else:
-                self.var_title.set("")
-                self.entry_title.delete(0, tk.END)
-                self.entry_title.insert(0, title)
-
+            
+            # Load title-lang map
+            self.title_lang_map = user.get("title_lang_map", {})
+            self.refresh_title_lang_table()
+            
             self.scheduled_tasks = user["scheduled_tasks"]
             self.var_scheduled_tasks_enabled.set(self.scheduled_tasks.get("enabled", False))
-        except (FileNotFoundError, KeyError):
-            self.var_lang.set("zh_cn")
-            self.var_title.set("《战舰世界》")
+        except (FileNotFoundError, KeyError) as e:
+            self.title_lang_map = {
+                "《战舰世界》": "zh_cn",
+                "World of Warships": "en_us"
+            }
             self.scheduled_tasks = {"enabled": False, "tasks": []}
             self.var_scheduled_tasks_enabled.set(False)
+            self.refresh_title_lang_table()
             self.save_user()
 
     def save_user(self):
-        user = {"language": self.var_lang.get(),
-                "title": self.get_actual_title(),
-                "scheduled_tasks": self.scheduled_tasks}
+        user = {
+            "title_lang_map": self.title_lang_map,
+            "scheduled_tasks": self.scheduled_tasks
+        }
         try:
             with open(self.user_path, "w", encoding="utf-8") as f:
                 json.dump(user, f, ensure_ascii=False, indent=2)
@@ -97,7 +92,7 @@ class MainGUI:
     def add_task(self):
         win_task = tk.Toplevel(self.root)
         win_task.title("Add Task")
-        win_task.geometry("250x350+1500+50")
+        win_task.geometry("200x300+1500+50")
         win_task.grab_set()
         win_task.focus_set()
 
@@ -110,8 +105,8 @@ class MainGUI:
         tk.Entry(win_task, textvariable=var_end).pack(fill=tk.X, padx=10, pady=5)
 
         tk.Label(win_task, text="BattleCount:").pack(anchor="w", padx=10, pady=5)
-        var_count = tk.IntVar(value=10)
-        tk.Spinbox(win_task, from_=1, to=99, textvariable=var_count).pack(fill=tk.X, padx=10, pady=5)
+        var_count = tk.IntVar(value=99)
+        tk.Spinbox(win_task, from_=1, to=999, textvariable=var_count).pack(fill=tk.X, padx=10, pady=5)
 
         # save task
         def _save_task():
@@ -135,7 +130,7 @@ class MainGUI:
 
         win_task = tk.Toplevel(self.root)
         win_task.title("Edit Task")
-        win_task.geometry("250x350+1500+50")
+        win_task.geometry("200x300+1500+50")
         win_task.grab_set()
         win_task.focus_set()
 
@@ -212,28 +207,130 @@ class MainGUI:
         self.notebook.add(self.frame_scheduled_tasks, text="Tasks")
         self.create_scheduled_tasks_widgets()
 
+    def refresh_title_lang_table(self):
+        # Clear existing items
+        for item in self.tree_title_lang.get_children():
+            self.tree_title_lang.delete(item)
+        
+        # Add items to treeview
+        for title, lang in self.title_lang_map.items():
+            self.tree_title_lang.insert("", "end", values=(title, lang))
+
+    def add_title_lang(self):
+        win_entry = tk.Toplevel(self.root)
+        win_entry.title("Add Title-Language Entry")
+        win_entry.geometry("300x200+1500+50")
+        win_entry.grab_set()
+        win_entry.focus_set()
+
+        tk.Label(win_entry, text="Window Title:").pack(anchor="w", padx=10, pady=5)
+        var_title = tk.StringVar()
+        tk.Entry(win_entry, textvariable=var_title).pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Label(win_entry, text="Language Code:").pack(anchor="w", padx=10, pady=5)
+        var_lang = tk.StringVar()
+        tk.Entry(win_entry, textvariable=var_lang).pack(fill=tk.X, padx=10, pady=5)
+
+        def _save_entry():
+            title = var_title.get().strip()
+            lang = var_lang.get().strip()
+            if title and lang:
+                self.title_lang_map[title] = lang
+                self.refresh_title_lang_table()
+                win_entry.destroy()
+            else:
+                messagebox.showwarning("Warning", "Both title and language code are required.")
+
+        tk.Button(win_entry, text="Save", command=_save_entry).pack(side=tk.LEFT, padx=10, pady=10)
+        tk.Button(win_entry, text="Cancel", command=win_entry.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
+
+    def edit_title_lang(self):
+        selection = self.tree_title_lang.selection()
+        if not selection:
+            return
+
+        item = selection[0]
+        values = self.tree_title_lang.item(item, "values")
+        old_title, old_lang = values
+
+        win_entry = tk.Toplevel(self.root)
+        win_entry.title("Edit Title-Language Entry")
+        win_entry.geometry("300x200+1500+50")
+        win_entry.grab_set()
+        win_entry.focus_set()
+
+        tk.Label(win_entry, text="Window Title:").pack(anchor="w", padx=10, pady=5)
+        var_title = tk.StringVar(value=old_title)
+        tk.Entry(win_entry, textvariable=var_title).pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Label(win_entry, text="Language Code:").pack(anchor="w", padx=10, pady=5)
+        var_lang = tk.StringVar(value=old_lang)
+        tk.Entry(win_entry, textvariable=var_lang).pack(fill=tk.X, padx=10, pady=5)
+
+        def _update_entry():
+            new_title = var_title.get().strip()
+            new_lang = var_lang.get().strip()
+            if new_title and new_lang:
+                # Remove old entry if title changed
+                if old_title != new_title:
+                    del self.title_lang_map[old_title]
+                # Add/update entry
+                self.title_lang_map[new_title] = new_lang
+                self.refresh_title_lang_table()
+                win_entry.destroy()
+            else:
+                messagebox.showwarning("Warning", "Both title and language code are required.")
+
+        tk.Button(win_entry, text="Update", command=_update_entry).pack(side=tk.LEFT, padx=10, pady=10)
+        tk.Button(win_entry, text="Cancel", command=win_entry.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
+
+    def remove_title_lang(self):
+        selection = self.tree_title_lang.selection()
+        if not selection:
+            return
+
+        item = selection[0]
+        values = self.tree_title_lang.item(item, "values")
+        title = values[0]
+        
+        if messagebox.askyesno("Confirm", f"Are you sure you want to remove '{title}'?"):
+            del self.title_lang_map[title]
+            self.refresh_title_lang_table()
+
     def create_user_widgets(self):
         tk.Label(self.frame_user, text="UserConfig", font=("Arial", 12, "bold")).pack(pady=10)
 
-        # language
-        tk.Label(self.frame_user, text="Language:").pack(anchor="w", padx=10, pady=5)
-        self.var_lang = tk.StringVar()
-        combo_lang = ttk.Combobox(self.frame_user, textvariable=self.var_lang,
-                                  values=["zh_cn", "en_us"])
-        combo_lang.pack(anchor="w", padx=10, pady=5)
-
-        # title
-        tk.Label(self.frame_user, text="GameTitle:").pack(anchor="w", padx=10, pady=5)
-        self.var_title = tk.StringVar()
-        combo_title = ttk.Combobox(self.frame_user, textvariable=self.var_title)
-        combo_title["values"] = ("《战舰世界》", "World of Warships")
-        combo_title.pack(fill=tk.X, padx=10, pady=5)
-        tk.Label(self.frame_user, text="Custom Title (if not in above list):").pack(anchor="w", padx=10, pady=(10, 5))
-        self.entry_title = tk.Entry(self.frame_user)
-        self.entry_title.pack(fill=tk.X, padx=10, pady=5)
-
-        # save
-        tk.Button(self.frame_user, text="Save", command=self.save_user).pack(pady=20)
+        # Title-Language mapping
+        tk.Label(self.frame_user, text="Title-Language Mapping:", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
+        
+        # Create treeview for title-lang mapping
+        frame_tree = tk.Frame(self.frame_user)
+        frame_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # Create treeview with scrollbar
+        tree_frame = tk.Frame(frame_tree)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.tree_title_lang = ttk.Treeview(tree_frame, columns=("title", "lang"), show="headings", height=6)
+        self.tree_title_lang.heading("title", text="Window Title")
+        self.tree_title_lang.heading("lang", text="Language Code")
+        self.tree_title_lang.column("title", width=200)
+        self.tree_title_lang.column("lang", width=100)
+        
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree_title_lang.yview)
+        self.tree_title_lang.configure(yscrollcommand=vsb.set)
+        
+        self.tree_title_lang.pack(side="left", fill=tk.BOTH, expand=True)
+        vsb.pack(side="right", fill="y")
+        
+        # Buttons for managing title-lang mappings
+        frame_buttons = tk.Frame(self.frame_user)
+        frame_buttons.pack(fill=tk.X, padx=10, pady=5)
+        
+        tk.Button(frame_buttons, text="Add", command=self.add_title_lang).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_buttons, text="Edit", command=self.edit_title_lang).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_buttons, text="Remove", command=self.remove_title_lang).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_buttons, text="Save", command=self.save_user).pack(side=tk.LEFT, padx=5)
 
     def create_scheduled_tasks_widgets(self):
         tk.Label(self.frame_scheduled_tasks, text="ScheduledTasks", font=("Arial", 12, "bold")).pack(pady=10)

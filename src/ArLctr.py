@@ -16,6 +16,32 @@ from ultralytics import YOLO
 log = logging.getLogger(__name__)
 
 
+def load_config(json_path: str) -> dict:
+    """Load configuration from JSON file"""
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"'config.json' not found at {json_path}")
+    with open(json_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    required_keys = ["region", "positions", "areas", "templates"]
+    missing_keys = [key for key in required_keys if key not in config]
+    if missing_keys:
+        raise ValueError(f"Missing keys in config.json, {missing_keys}")
+    return config
+
+
+def load_user(user_path: str) -> dict:
+    """Load user configuration from JSON file"""
+    if not os.path.exists(user_path):
+        raise FileNotFoundError(f"'user.json' not found at {user_path}")
+    with open(user_path, "r", encoding="utf-8") as f:
+        user = json.load(f)
+    required_keys = ["title_lang_map", "scheduled_tasks"]
+    missing_keys = [key for key in required_keys if key not in user]
+    if missing_keys:
+        raise ValueError(f"Missing keys in user.json, {missing_keys}")
+    return user
+
+
 @dataclass
 class Template:
     name: str
@@ -35,47 +61,23 @@ class Match:
 
 
 class AreaLocator:
-    def __init__(self):
+    def __init__(self, win_title: str):
         self.resource_path = "resources"
         json_path = os.path.join(self.resource_path, "config.json")
         user_path = os.path.join(self.resource_path, "user.json")
         models_path = os.path.join(self.resource_path, "models")
         templates_path = os.path.join(self.resource_path, "templates")
 
-        self.config = self.load_config(json_path)
-        self.user = self.load_user(user_path)
-        self.templates = self.load_templates(templates_path)
+        self.config = load_config(json_path)
+        self.user = load_user(user_path)
+        self.templates = self.load_templates(win_title, templates_path,)
         self.model_compass = self.load_model(models_path, self.config["model_compass"])
         self.model_minimap = self.load_model(models_path, self.config["model_minimap"])
         self.model_warship = self.load_model(models_path, self.config["model_warship"])
 
-    def load_config(self, json_path: str) -> dict:
-        """Load configuration from JSON file"""
-        if not os.path.exists(json_path):
-            raise FileNotFoundError(f"'config.json' not found at {json_path}")
-        with open(json_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        required_keys = ["region", "positions", "areas", "templates"]
-        missing_keys = [key for key in required_keys if key not in config]
-        if missing_keys:
-            raise ValueError(f"Missing keys in config.json, {missing_keys}")
-        return config
-
-    def load_user(self, user_path: str) -> dict:
-        """Load user configuration from JSON file"""
-        if not os.path.exists(user_path):
-            raise FileNotFoundError(f"'user.json' not found at {user_path}")
-        with open(user_path, "r", encoding="utf-8") as f:
-            user = json.load(f)
-        required_keys = ["language", "title", "scheduled_tasks"]
-        missing_keys = [key for key in required_keys if key not in user]
-        if missing_keys:
-            raise ValueError(f"Missing keys in user.json, {missing_keys}")
-        return user
-
-    def load_templates(self, templates_path: str) -> dict[str, Template]:
+    def load_templates(self, win_title: str, templates_path: str) -> dict[str, Template]:
         """Load templates from the templates directory"""
-        language: str = self.user["language"]
+        language: str = self.user["title_lang_map"][win_title]
         templates: dict[str, dict] = self.config["templates"]
         tmpls = {}
         for key, tmpl in templates.items():
@@ -197,7 +199,8 @@ class AreaLocator:
         log.info(f"Matched {name}")
 
         # Show match result to debug
-        if match.val <= threshold or show:
+        # if match.val <= threshold or show:
+        if show:
 
             # Draw all templates
             if name == "unknown":
@@ -248,7 +251,7 @@ class AreaLocator:
         centers = [(int(x + c[0]), int(y + c[1])) for c in centers]
 
         # Show result
-        show = True
+        # show = True
         if show:
             elems = [("circle", (*c, 5, (0, 0, 255), -1)) for c in centers]
             overlay = self._draw_overlay(screen=screen, elems=elems)
@@ -310,7 +313,7 @@ class AreaLocator:
         delta = np.array([1.0, a])
         data["self"] = [self_center, delta]
 
-        show = True
+        # show = True
         if show:
             frame = result.plot()
             self._show_window(name="minimap", loc=(x, y), image=frame)
@@ -362,7 +365,7 @@ class AreaLocator:
         a, b = np.polyfit(points[:, 0], points[:, 1], 1)
         delta = np.array([1.0, a])
 
-        show = True
+        # show = True
         if show:
             frame = result.plot()
             self._show_window(name="compass", loc=(x, y), image=frame)

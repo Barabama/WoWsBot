@@ -11,9 +11,6 @@ from src.GUI import MainGUI
 from src.MCtrl import MainController
 
 
-log_level = "DEBUG" if len(sys.argv) > 1 else "INFO"
-
-
 def main():
     hkmgr = HotkeyManager()
     root = tk.Tk()
@@ -47,4 +44,5 @@ def main():
 
 
 if __name__ == "__main__":
+    log_level = "DEBUG" if len(sys.argv) > 1 else "INFO"
     main()

@@ -323,6 +323,9 @@ class BotInPort(BotBase):
                 self.deflaged = not flag
                 self.debuffed = not flag
 
+        elif name in ["logining_1", "logining_2"]:
+            log.info("Waiting for login...")
+        
         else:
             self.close_page()
 

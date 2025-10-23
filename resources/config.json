@@ -115,6 +115,16 @@
             "weight": 8,
             "area": [600, 480, 250, 100]
         },
+        "logining_1": {
+            "name": "logining_1",
+            "weight": 8,
+            "area": [600, 800, 240, 100]
+        },
+        "logining_2": {
+            "name": "logining_2",
+            "weight": 8,
+            "area": [600, 800, 240, 100]
+        },
 
         "back_btn": {
             "name": "back_btn",

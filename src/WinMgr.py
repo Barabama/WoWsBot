@@ -24,6 +24,7 @@ class WindowManager:
         log.info(f"Initialized window: {self.window.title}")
 
     def set_window_borderless(self):
+        self.window.activate()
         hwnd = win32gui.FindWindow(None, self.window.title)
         if not hwnd:
             raise RuntimeError("Not found window")

@@ -1,7 +1,7 @@
 [project]
 name = "wowsbot"
 version = "0.1.0"
-description = "Add your description here"
+description = "A modular automation script for the online game World of Warships using template matching and OCR"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -17,3 +17,30 @@ dependencies = [
     "ultralytics",
     "onnx",
 ]
+authors = [
+    {name = "WoWsBot Developer"}
+]
+license = {text = "GPL-3.0"}
+keywords = ["wows", "bot", "automation", "gaming"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
+    "Topic :: Utilities"
+]
+
+[project.urls]
+Homepage = "https://github.com/Barabama/WoWsBot"
+Repository = "https://github.com/Barabama/WoWsBot"
+Documentation = "https://github.com/Barabama/WoWsBot/blob/main/README.md"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]

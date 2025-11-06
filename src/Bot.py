@@ -491,6 +491,6 @@ class BotInBattle(BotBase):
 
         elif self.build_nautical_chart():
             self.search_enemy()
-
-        else:
             self.fire_weapon()
+
+        

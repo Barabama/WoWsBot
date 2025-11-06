@@ -314,7 +314,9 @@ class MainController:
             try:
                 # Check if to stop
                 if self.stop_event.is_set() or not self.hkmgr.running:
-                    break
+                    if self.hkmgr.running == False and self.running == True:
+                        self.on_stop()
+                    return
 
                 # Check scheduled tasks: stop instance if not allowed to run now
                 if not inst.task_manager.should_continue_running(in_battle=inst.in_battle):

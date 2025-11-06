@@ -25,6 +25,7 @@ class WindowManager:
 
     def set_window_borderless(self):
         self.window.activate()
+        time.sleep(1)  # wait for activation
         hwnd = win32gui.FindWindow(None, self.window.title)
         if not hwnd:
             raise RuntimeError("Not found window")

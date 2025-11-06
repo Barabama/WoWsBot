@@ -1,5 +1,9 @@
 # WoWsBot
 
+<p align="center">
+  <img src="./resources/images/work_harder.jpg" alt="Work Harder">
+</p>
+
 [English](#english) | [简体中文](#简体中文)
 
 ---

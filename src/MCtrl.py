@@ -318,10 +318,13 @@ class MainController:
                         self.on_stop()
                     return
 
-                # Check scheduled tasks: stop instance if not allowed to run now
+                # Check scheduled tasks: pause instance if not allowed to run now
+                # Instead of stopping the instance, we just skip processing and continue the loop
                 if not inst.task_manager.should_continue_running(in_battle=inst.in_battle):
-                    log.info(f"Instance {inst.idx} scheduled tasks disallow running now or quota exhausted, stopping")
-                    inst.event_stop.set()
+                    log.info(f"Instance {inst.idx} scheduled tasks disallow running now or quota exhausted")
+                    log.info(f"waiting for next scheduled task")
+                    # Add a sleep to avoid busy-waiting
+                    time.sleep(5)
                     continue
 
                 # Capture screen

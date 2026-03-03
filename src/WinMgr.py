@@ -1,11 +1,11 @@
 # src/WinMgr.py
 
-import logging
 import time
+import logging
 
-import numpy as np
 import win32gui
 import win32con
+import numpy as np
 import pygetwindow as gw
 import mss
 
@@ -40,7 +40,9 @@ class WindowManager:
 
         win32gui.SetWindowLong(hwnd, win32con.GWL_STYLE, style)
         x, y, w, h = self.region
-        win32gui.SetWindowPos(hwnd, win32con.HWND_TOP, x, y, w, h, win32con.SWP_SHOWWINDOW)
+        win32gui.SetWindowPos(
+            hwnd, win32con.HWND_TOP, x, y, w, h, win32con.SWP_SHOWWINDOW
+        )
         log.info(f"Set window {self.window.title} to borderless")
         time.sleep(1)
 

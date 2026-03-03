@@ -1,15 +1,15 @@
 #  src/ArLctr.py
 
+import os
 import json
 import logging
-import os
 import threading
 
 from collections import defaultdict
 from dataclasses import dataclass
 
-import numpy as np
 import cv2
+import numpy as np
 from sklearn.cluster import KMeans
 from ultralytics import YOLO
 
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 def load_config(json_path: str) -> dict:
-    """Load configuration from JSON file"""
+    """Load configuration from JSON file."""
     if not os.path.exists(json_path):
         raise FileNotFoundError(f"'config.json' not found at {json_path}")
     with open(json_path, "r", encoding="utf-8") as f:
@@ -30,7 +30,7 @@ def load_config(json_path: str) -> dict:
 
 
 def load_user(user_path: str) -> dict:
-    """Load user configuration from JSON file"""
+    """Load user configuration from JSON file."""
     if not os.path.exists(user_path):
         raise FileNotFoundError(f"'user.json' not found at {user_path}")
     with open(user_path, "r", encoding="utf-8") as f:
@@ -70,13 +70,15 @@ class AreaLocator:
 
         self.config = load_config(json_path)
         self.user = load_user(user_path)
-        self.templates = self.load_templates(win_title, templates_path,)
+        self.templates = self.load_templates(win_title, templates_path)
         self.model_compass = self.load_model(models_path, self.config["model_compass"])
         self.model_minimap = self.load_model(models_path, self.config["model_minimap"])
         self.model_warship = self.load_model(models_path, self.config["model_warship"])
 
-    def load_templates(self, win_title: str, templates_path: str) -> dict[str, Template]:
-        """Load templates from the templates directory"""
+    def load_templates(
+        self, win_title: str, templates_path: str
+    ) -> dict[str, Template]:
+        """Load templates from the templates directory."""
         language: str = self.user["title_lang_map"][win_title]
         templates: dict[str, dict] = self.config["templates"]
         tmpls = {}
@@ -95,7 +97,7 @@ class AreaLocator:
         return tmpls
 
     def load_model(self, models_path: str, name: str) -> YOLO | None:
-        """Load a YOLO model from the models directory"""
+        """Load a YOLO model from the models directory."""
         path = os.path.join(models_path, name)
         if os.path.exists(path):
             log.info(f"Loaded model {name}")
@@ -105,7 +107,7 @@ class AreaLocator:
             return None
 
     def get_templates(self, names: list[str]) -> list[Template]:
-        """Get sorted templates by names or all templates if names is empty"""
+        """Get sorted templates by names or all templates if names is empty."""
         names = names or list(self.templates.keys())
         tmpls = []
         for name in names:
@@ -118,12 +120,15 @@ class AreaLocator:
         return tmpls
 
     def _show_window(self, name: str, loc: tuple[int, int], image: np.ndarray):
-        """Display an image in a named OpenCV window"""
+        """Display an image in a named OpenCV window."""
+
         def show_image():
             # Use a default window name if name is "unknown" to avoid OpenCV errors
             window_name = "result" if name == "unknown" else name
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-            cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            cv2.setWindowProperty(
+                window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
+            )
             height, width = image.shape[:2]
             cv2.resizeWindow(window_name, width, height)
             cv2.moveWindow(window_name, loc[0], loc[1])
@@ -139,10 +144,12 @@ class AreaLocator:
         thread.start()
         thread.join(timeout=3)
 
-    def _draw_overlay(self, screen: np.ndarray, elems: list[tuple[str, tuple]]) -> np.ndarray:
+    def _draw_overlay(
+        self, screen: np.ndarray, elems: list[tuple[str, tuple]]
+    ) -> np.ndarray:
         """
-        Draw overlay elements with transparent background
-        This creates a truly transparent background where only the drawn elements are visible
+        Draw overlay elements with transparent background.
+        This creates a truly transparent background where only the drawn elements are visible.
         """
         overlay = np.zeros((screen.shape[0], screen.shape[1], 4), dtype=np.uint8)
 
@@ -168,19 +175,26 @@ class AreaLocator:
         result = cv2.add(background, foreground)
         return result
 
-    def match_template(self, screen: np.ndarray, names: list[str] | None = None,
-                       show: bool = False) -> Match:
-        """Match template on screen and return the best match"""
+    def match_template(
+        self, screen: np.ndarray, names: list[str] | None = None, show: bool = False
+    ) -> Match:
+        """Match template on screen and return the best match."""
         if names is None:
             names = []
 
         threshold = self.config.get("match_threshold", 0.7)
-        match = Match(name="unknown", loc=(0, 0, 0, 0), val=0.65, area=(0, 0, 0, 0),
-                      roi=screen, screen=screen)
+        match = Match(
+            name="unknown",
+            loc=(0, 0, 0, 0),
+            val=0.65,
+            area=(0, 0, 0, 0),
+            roi=screen,
+            screen=screen,
+        )
 
         for tmpl in self.get_templates(names):
             x, y, w, h = tmpl.area
-            roi = screen[y:y + h, x:x + w]
+            roi = screen[y : y + h, x : x + w]
             img_tmpl = cv2.imread(tmpl.path, cv2.IMREAD_COLOR)
             if img_tmpl is None:
                 log.warning(f"Template '{tmpl.name}' not found at '{tmpl.path}'")
@@ -190,8 +204,20 @@ class AreaLocator:
             val_min, val_max, loc_min, loc_max = cv2.minMaxLoc(result)
 
             if val_max >= match.val:
-                loc = (x + loc_max[0], y + loc_max[1], img_tmpl.shape[1], img_tmpl.shape[0])
-                match = Match(name=tmpl.name, loc=loc, val=val_max, area=tmpl.area, roi=roi, screen=screen)
+                loc = (
+                    x + loc_max[0],
+                    y + loc_max[1],
+                    img_tmpl.shape[1],
+                    img_tmpl.shape[0],
+                )
+                match = Match(
+                    name=tmpl.name,
+                    loc=loc,
+                    val=val_max,
+                    area=tmpl.area,
+                    roi=roi,
+                    screen=screen,
+                )
             if val_max >= threshold:
                 break
 
@@ -204,8 +230,10 @@ class AreaLocator:
 
             # Draw all templates
             if name == "unknown":
-                elems = [("rectangle", (*tmpl.area, (0, 255, 0), 3))
-                         for tmpl in self.get_templates(names)]
+                elems = [
+                    ("rectangle", (*tmpl.area, (0, 255, 0), 3))
+                    for tmpl in self.get_templates(names)
+                ]
             # Draw matched template
             else:
                 elems = [("rectangle", (*match.loc, (0, 0, 255), 3))]
@@ -216,8 +244,10 @@ class AreaLocator:
 
         return match
 
-    def read_bigmap(self, screen: np.ndarray, show: bool = False) -> list[tuple[int, int]] | None:
-        """Read bigmap and return red point coordinates"""
+    def read_bigmap(
+        self, screen: np.ndarray, show: bool = False
+    ) -> list[tuple[int, int]] | None:
+        """Read bigmap and return red point coordinates."""
         # Validate area configuration
         if "bigmap" not in self.config["areas"]:
             log.error("Bigmap area not configured")
@@ -225,7 +255,7 @@ class AreaLocator:
 
         area = self.config["areas"]["bigmap"]["area"]
         x, y, w, h = area
-        roi = screen[y:y + h, x:x + w]
+        roi = screen[y : y + h, x : x + w]
 
         # Find all red points
         hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
@@ -259,9 +289,11 @@ class AreaLocator:
 
         return centers
 
-    def read_minimap(self, screen: np.ndarray, show: bool = False) -> dict[str, list[np.ndarray]] | None:
+    def read_minimap(
+        self, screen: np.ndarray, show: bool = False
+    ) -> dict[str, list[np.ndarray]] | None:
         """
-        Read minimap and return ship positions and directions
+        Read minimap and return ship positions and directions.
         Returns: {"self": [arr(x, y), arr(dx, dy)],
                   "ally": [arr(x1, y1), arr(x2, y2),...],
                   "enemy": [arr(x1, y1), arr(x2, y2),...]}
@@ -277,7 +309,7 @@ class AreaLocator:
 
         area = self.config["areas"]["minimap"]["area"]
         x, y, w, h = area
-        roi = screen[y:y + h, x:x + w]
+        roi = screen[y : y + h, x : x + w]
 
         # Predict
         data = defaultdict(list)
@@ -321,7 +353,7 @@ class AreaLocator:
         return dict(data)
 
     def read_compass(self, screen: np.ndarray, show: bool = False) -> np.ndarray | None:
-        """Read compass and return direction vector"""
+        """Read compass and return direction vector."""
         # Validate area configuration and model availability
         if "compass" not in self.config["areas"]:
             log.error("Compass area not configured")
@@ -333,7 +365,7 @@ class AreaLocator:
 
         area = self.config["areas"]["compass"]["area"]
         x, y, w, h = area
-        roi = screen[y:y + h, x:x + w]
+        roi = screen[y : y + h, x : x + w]
 
         # Predict using the model
         best_conf = 0.0

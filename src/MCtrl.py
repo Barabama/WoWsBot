@@ -1,27 +1,25 @@
 # src/MCtrl.py
 
-import logging
 import os
-import sys
 import time
+import logging
 import traceback
 import threading
 from datetime import datetime
 
 import pygetwindow as gw
 
-from .ArLctr import AreaLocator, Match, load_config, load_user
-from .HkMgr import HotkeyManager
-from .WinMgr import WindowManager
-from .Bot import BotInPort, BotInBattle
+from src.ArLctr import AreaLocator, Match, load_config, load_user
+from src.HkMgr import HotkeyManager
+from src.WinMgr import WindowManager
+from src.bot.battle import BotInBattle
+from src.bot.port import BotInPort
 
 log = logging.getLogger(__name__)
 
 
 class TaskManager:
-    """
-    Simplified task manager that handles scheduled tasks with unified logic
-    """
+    """Simplified task manager that handles scheduled tasks with unified logic."""
 
     def __init__(self):
         self.enabled = False
@@ -32,7 +30,7 @@ class TaskManager:
         self._now = datetime.now
 
     def load_tasks(self, data: dict):
-        """Load tasks from user configuration"""
+        """Load tasks from user configuration."""
         self.enabled = data.get("enabled", False)
         self.tasks = []
         self._task_ids = []
@@ -62,7 +60,7 @@ class TaskManager:
                 task = {
                     "start": start_time,
                     "end": end_time,
-                    "max_battles": max_battles
+                    "max_battles": max_battles,
                 }
 
                 self.tasks.append(task)
@@ -76,7 +74,7 @@ class TaskManager:
                 continue
 
     def is_running_time(self):
-        """Check if current time is within any task's running time"""
+        """Check if current time is within any task's running time."""
         if not self.enabled or not self.tasks:
             return False
 
@@ -97,7 +95,7 @@ class TaskManager:
         return False
 
     def _is_task_active(self, task: dict, current_time) -> bool:
-        """Helper: return True if given task is active at current_time"""
+        """Helper: return True if given task is active at current_time."""
         start_time = task["start"]
         end_time = task["end"]
         if start_time <= end_time:
@@ -107,8 +105,8 @@ class TaskManager:
 
     def should_continue_running(self, in_battle=False):
         """
-        Determine if script should continue running based on tasks and battle status
-        If in battle, continue regardless of time constraints
+        Determine if script should continue running based on tasks and battle status.
+        If in battle, continue regardless of time constraints.
         """
         # If scheduling is disabled, allow continuous running
         if not self.enabled:
@@ -139,7 +137,7 @@ class TaskManager:
         return False
 
     def record_battle(self):
-        """Record that a battle has been completed"""
+        """Record that a battle has been completed."""
         if not self.enabled:
             return
         current_time = self._now().time()
@@ -150,10 +148,12 @@ class TaskManager:
 
             task_id = self._task_ids[i] if i < len(self._task_ids) else i
             self.battle_counts[task_id] = self.battle_counts.get(task_id, 0) + 1
-            log.debug(f"Task {task_id} recorded battle. Count now: {self.battle_counts[task_id]}")
+            log.debug(
+                f"Task {task_id} recorded battle. Count now: {self.battle_counts[task_id]}"
+            )
 
     def is_finished_all_tasks(self):
-        """Check if all tasks have reached their battle limit"""
+        """Check if all tasks have reached their battle limit."""
         if not self.enabled or not self.tasks:
             return False
         for i, task in enumerate(self.tasks):
@@ -163,7 +163,9 @@ class TaskManager:
 
             # If any task hasn't reached its limit, we're not finished
             if battles_done < max_battles:
-                log.debug(f"Task {task_id} not finished. Battles: {battles_done}/{max_battles}")
+                log.debug(
+                    f"Task {task_id} not finished. Battles: {battles_done}/{max_battles}"
+                )
                 return False
 
         # All tasks have reached their limits
@@ -171,16 +173,18 @@ class TaskManager:
         return True
 
     def reset_battle_counts(self):
-        """Reset battle counts for all tasks"""
+        """Reset battle counts for all tasks."""
         for task_id in self.battle_counts:
             self.battle_counts[task_id] = 0
         log.info("Battle counts reset")
 
 
 class GameInstance:
-    """Wrapper class for a game instance"""
+    """Wrapper class for a game instance."""
 
-    def __init__(self, idx: int, window: gw.Win32Window, region: tuple[int, int, int, int]):
+    def __init__(
+        self, idx: int, window: gw.Win32Window, region: tuple[int, int, int, int]
+    ):
         self.idx = idx
         self.window = window
         self.region = region
@@ -194,25 +198,31 @@ class GameInstance:
         self.initialized = False
 
     def initialize(self) -> bool:
-        """Initialize game instance"""
+        """Initialize game instance."""
         try:
             self.wdmgr = WindowManager(region=self.region, window=self.window)
             self.wdmgr.set_window_borderless()
             self.alctr = AreaLocator(win_title=self.window.title)
             if self.alctr and self.alctr.user:
                 self.task_manager.load_tasks(data=self.alctr.user["scheduled_tasks"])
-            self.portbot = BotInPort(event=self.event_stop, arlctr=self.alctr, wdmgr=self.wdmgr)
-            self.battlebot = BotInBattle(event=self.event_stop, arlctr=self.alctr, wdmgr=self.wdmgr)
+            self.portbot = BotInPort(
+                event=self.event_stop, arlctr=self.alctr, wdmgr=self.wdmgr
+            )
+            self.battlebot = BotInBattle(
+                event=self.event_stop, arlctr=self.alctr, wdmgr=self.wdmgr
+            )
             self.initialized = True
             log.info(f"Game instance {self.idx} for {self.window.title} initialized")
             return True
         except Exception as e:
-            log.error(f"Failed to initialize game instance {self.idx} for {self.window.title}")
+            log.error(
+                f"Failed to initialize game instance {self.idx} for {self.window.title}"
+            )
             log.error(traceback.format_exc())
             return False
 
     def cleanup(self):
-        """Cleanup game instance"""
+        """Cleanup game instance."""
         try:
             self.event_stop.set()
             self.wdmgr = None
@@ -222,7 +232,9 @@ class GameInstance:
             self.initialized = False
             log.info(f"Game instance {self.idx} for {self.window.title} cleaned up")
         except Exception:
-            log.error(f"Game instance {self.idx} for {self.window.title} cleanup failed")
+            log.error(
+                f"Game instance {self.idx} for {self.window.title} cleanup failed"
+            )
             log.error(traceback.format_exc())
 
 
@@ -237,7 +249,7 @@ class MainController:
         self.in_battle = False  # Track if we're currently in battle
 
     def setup_instances(self):
-        """Set up game instances"""
+        """Set up game instances."""
         config = load_config(os.path.join("resources", "config.json"))
         user = load_user(os.path.join("resources", "user.json"))
         titles = list(user["title_lang_map"].keys())
@@ -259,7 +271,7 @@ class MainController:
         log.info(f"Set up {len(self.instances)} game instances")
 
     def on_start(self):
-        """Start game instances"""
+        """Start game instances."""
         log.info("Starting multi-controller")
         try:
             self.setup_instances()
@@ -274,7 +286,7 @@ class MainController:
             log.error(traceback.format_exc())
 
     def on_stop(self):
-        """Stop game instances"""
+        """Stop game instances."""
         log.info("Stopping multi-controller")
         for inst in self.instances:
             inst.cleanup()
@@ -283,7 +295,7 @@ class MainController:
         log.info("Multi-controller stopped")
 
     def run(self):
-        """Run the multi-controller"""
+        """Run the multi-controller."""
         log.info("Multi-Controller Started")
         try:
             while not (self.hkmgr.should_exit or self.stop_event.is_set()):
@@ -306,7 +318,7 @@ class MainController:
             log.info("Multi-controller exited")
 
     def _main_loop_iteration(self):
-        """Handle multi iteration of the loop"""
+        """Handle multi iteration of the loop."""
         for inst in self.instances:
             if not inst.initialized or inst.event_stop.is_set():
                 continue
@@ -320,10 +332,16 @@ class MainController:
 
                 # Check scheduled tasks: pause instance if not allowed to run now
                 # Instead of stopping the instance, we just skip processing and continue the loop
-                if not inst.task_manager.should_continue_running(in_battle=inst.in_battle):
-                    log.info(f"Instance {inst.idx} scheduled tasks disallow running now or quota exhausted")
+                if not inst.task_manager.should_continue_running(
+                    in_battle=inst.in_battle
+                ):
+                    log.info(
+                        f"Instance {inst.idx} scheduled tasks disallow running now or quota exhausted"
+                    )
                     log.info(f"waiting for next scheduled task")
                     # Add a sleep to avoid busy-waiting
+                    # Keep window net active
+                    inst.wdmgr.check_window()
                     time.sleep(5)
                     continue
 
@@ -342,16 +360,25 @@ class MainController:
                 self._process_game_state(inst, name, match)
 
             except Exception:
-                log.error(f"Error in main loop iteration processing instance {inst.idx}")
+                log.error(
+                    f"Error in main loop iteration processing instance {inst.idx}"
+                )
                 log.error(traceback.format_exc())
 
-    def _process_game_state(self, instance: GameInstance, state_name: str, match: Match):
-        """Process game state and take appropriate actions"""
+    def _process_game_state(
+        self, instance: GameInstance, state_name: str, match: Match
+    ):
+        """Process game state and take appropriate actions."""
         if instance.event_stop.is_set():
             return
 
-        if state_name in ["battle_loading", "battle_queue", "battle_mission",
-                          "battle_member", "battle_tips"]:
+        if state_name in [
+            "battle_loading",
+            "battle_queue",
+            "battle_mission",
+            "battle_member",
+            "battle_tips",
+        ]:
             self._handle_battle_preparation(instance)
 
         elif state_name in ["battle_began", "map_mode", "b_btn", "autopilot_on"]:
@@ -364,13 +391,13 @@ class MainController:
             self._handle_port_state(instance, match)
 
     def _handle_battle_preparation(self, instance: GameInstance):
-        """Handle states when battle is loading or in queue"""
+        """Handle states when battle is loading or in queue."""
         if not instance.in_battle:
             log.info(f"Instance {instance.idx} waiting for battle to start")
         instance.in_battle = True
 
     def _handle_battle_start(self, instance: GameInstance, match):
-        """Handle the start of a battle"""
+        """Handle the start of a battle."""
         if not instance.in_battle:
             log.info(f"Instance {instance.idx} Battle started")
         instance.in_battle = True
@@ -378,7 +405,7 @@ class MainController:
             instance.battlebot.tick(match=match)
 
     def _handle_battle_end(self, instance: GameInstance):
-        """Handle the end of a battle"""
+        """Handle the end of a battle."""
         if instance.in_battle:
             log.info(f"Instance {instance.idx} Battle ended")
         instance.in_battle = False
@@ -392,15 +419,19 @@ class MainController:
             instance.event_stop.set()
 
     def _handle_port_state(self, instance: GameInstance, match):
-        """Handle being in the port/harbor"""
+        """Handle being in the port/harbor."""
         # Only log if we're transitioning from battle to port
         if instance.in_battle:
             log.info(f"Instance {instance.idx} returned to port")
         instance.in_battle = False
 
         # Stop if all tasks are done
-        if not instance.task_manager.should_continue_running(in_battle=instance.in_battle):
-            log.info(f"Instance {instance.idx} not allowed to start new battles now or quota exhausted, stopping")
+        if not instance.task_manager.should_continue_running(
+            in_battle=instance.in_battle
+        ):
+            log.info(
+                f"Instance {instance.idx} not allowed to start new battles now or quota exhausted, stopping"
+            )
             instance.event_stop.set()
             return
 

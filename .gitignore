@@ -14,7 +14,8 @@ wheels/
 .venv
 
 # YOLO training
-training/
+training/dataset
+training/runs
 
 # Tests
 tests/

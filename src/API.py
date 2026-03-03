@@ -1,7 +1,8 @@
+# src/API.py
 
-import json
 import os
 import re
+import json
 import shutil
 
 
@@ -18,7 +19,7 @@ class ApiCaller:
         self.data_path = os.path.join(self.target, "game_data.json")
 
     def find_target(self) -> str | None:
-        """Finds the target path in the max num path"""
+        """Finds the target path in the max num path."""
         num_max = float("-inf")
         target = None
 
@@ -42,7 +43,7 @@ class ApiCaller:
         return target
 
     def deploy_mod(self):
-        """deploy mod folder to target"""
+        """deploy mod folder to target."""
         if not os.path.isdir(self.modpath):
             raise FileNotFoundError(f"res_mods not found in {self.modpath}")
 

@@ -1,13 +1,12 @@
 # src/GUI.py
 
+import json
 import logging
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 from tkinter import ttk
-import json
-import os
 
-from .HkMgr import HotkeyManager
+from src.HkMgr import HotkeyManager
 
 
 class TextHandler(logging.Handler):
@@ -23,6 +22,7 @@ class TextHandler(logging.Handler):
             self.text_widget.insert(tk.END, msg + "\n")
             self.text_widget.configure(state=tk.DISABLED)
             self.text_widget.see(tk.END)
+
         self.text_widget.after(0, append)
 
 
@@ -53,17 +53,19 @@ class MainGUI:
         try:
             with open(self.user_path, "r", encoding="utf-8") as f:
                 user = json.load(f)
-            
+
             # Load title-lang map
             self.title_lang_map = user.get("title_lang_map", {})
             self.refresh_title_lang_table()
-            
+
             self.scheduled_tasks = user["scheduled_tasks"]
-            self.var_scheduled_tasks_enabled.set(self.scheduled_tasks.get("enabled", False))
+            self.var_scheduled_tasks_enabled.set(
+                self.scheduled_tasks.get("enabled", False)
+            )
         except (FileNotFoundError, KeyError) as e:
             self.title_lang_map = {
                 "《战舰世界》": "zh_cn",
-                "World of Warships": "en_us"
+                "World of Warships": "en_us",
             }
             self.scheduled_tasks = {"enabled": False, "tasks": []}
             self.var_scheduled_tasks_enabled.set(False)
@@ -73,7 +75,7 @@ class MainGUI:
     def save_user(self):
         user = {
             "title_lang_map": self.title_lang_map,
-            "scheduled_tasks": self.scheduled_tasks
+            "scheduled_tasks": self.scheduled_tasks,
         }
         try:
             with open(self.user_path, "w", encoding="utf-8") as f:
@@ -85,8 +87,7 @@ class MainGUI:
         self.listbox_tasks.delete(0, tk.END)
         for t in self.scheduled_tasks.get("tasks", []):
             self.listbox_tasks.insert(
-                tk.END,
-                f"{t['start']} to {t['end']} ({t['count']} battles)"
+                tk.END, f"{t['start']} to {t['end']} ({t['count']} battles)"
             )
 
     def add_task(self):
@@ -106,19 +107,27 @@ class MainGUI:
 
         tk.Label(win_task, text="BattleCount:").pack(anchor="w", padx=10, pady=5)
         var_count = tk.IntVar(value=99)
-        tk.Spinbox(win_task, from_=1, to=999, textvariable=var_count).pack(fill=tk.X, padx=10, pady=5)
+        tk.Spinbox(win_task, from_=1, to=999, textvariable=var_count).pack(
+            fill=tk.X, padx=10, pady=5
+        )
 
         # save task
         def _save_task():
-            task = {"start": var_start.get(),
-                    "end": var_end.get(),
-                    "count": var_count.get()}
+            task = {
+                "start": var_start.get(),
+                "end": var_end.get(),
+                "count": var_count.get(),
+            }
             self.scheduled_tasks["tasks"].append(task)
             self.refresh_tasks()
             win_task.destroy()
 
-        tk.Button(win_task, text="Save", command=_save_task).pack(fill=tk.X, padx=10, pady=10)
-        tk.Button(win_task, text="Cancel", command=win_task.destroy).pack(fill=tk.X, padx=10, pady=10)
+        tk.Button(win_task, text="Save", command=_save_task).pack(
+            fill=tk.X, padx=10, pady=10
+        )
+        tk.Button(win_task, text="Cancel", command=win_task.destroy).pack(
+            fill=tk.X, padx=10, pady=10
+        )
 
     def edit_task(self):
         selection = self.listbox_tasks.curselection()
@@ -144,17 +153,27 @@ class MainGUI:
 
         tk.Label(win_task, text="BattleCount:").pack(anchor="w", padx=10, pady=5)
         var_count = tk.IntVar(value=task["count"])
-        tk.Spinbox(win_task, from_=1, to=99, textvariable=var_count).pack(fill=tk.X, padx=10, pady=5)
+        tk.Spinbox(win_task, from_=1, to=99, textvariable=var_count).pack(
+            fill=tk.X, padx=10, pady=5
+        )
 
         def _update_task():
-            task.update({"start": var_start.get(),
-                         "end": var_end.get(),
-                         "count": var_count.get()})
+            task.update(
+                {
+                    "start": var_start.get(),
+                    "end": var_end.get(),
+                    "count": var_count.get(),
+                }
+            )
             self.refresh_tasks()
             win_task.destroy()
 
-        tk.Button(win_task, text="Update", command=_update_task).pack(fill=tk.X, padx=10, pady=10)
-        tk.Button(win_task, text="Cancel", command=win_task.destroy).pack(fill=tk.X, padx=10, pady=10)
+        tk.Button(win_task, text="Update", command=_update_task).pack(
+            fill=tk.X, padx=10, pady=10
+        )
+        tk.Button(win_task, text="Cancel", command=win_task.destroy).pack(
+            fill=tk.X, padx=10, pady=10
+        )
 
     def remove_task(self):
         selection = self.listbox_tasks.curselection()
@@ -183,18 +202,22 @@ class MainGUI:
         frame_btn = tk.Frame(self.frame_main)
         frame_btn.pack(fill=tk.X, padx=10, pady=5)
 
-        self.btn_start = tk.Button(frame_btn, text="Start(F10)",
-                                   command=self.hkmgr.script_start)
+        self.btn_start = tk.Button(
+            frame_btn, text="Start(F10)", command=self.hkmgr.script_start
+        )
         self.btn_start.pack(side=tk.LEFT, padx=5)
 
-        self.btn_stop = tk.Button(frame_btn, text="Stop(F11)",
-                                  command=self.hkmgr.script_stop)
+        self.btn_stop = tk.Button(
+            frame_btn, text="Stop(F11)", command=self.hkmgr.script_stop
+        )
         self.btn_stop.pack(side=tk.LEFT, padx=5)
 
         # logging
         label_log = tk.Label(self.frame_main, text="Runtime Log:")
         label_log.pack(anchor="w", padx=10)
-        self.text_log = scrolledtext.ScrolledText(self.frame_main, state="disabled", height=20)
+        self.text_log = scrolledtext.ScrolledText(
+            self.frame_main, state="disabled", height=20
+        )
         self.text_log.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # uesr
@@ -211,7 +234,7 @@ class MainGUI:
         # Clear existing items
         for item in self.tree_title_lang.get_children():
             self.tree_title_lang.delete(item)
-        
+
         # Add items to treeview
         for title, lang in self.title_lang_map.items():
             self.tree_title_lang.insert("", "end", values=(title, lang))
@@ -239,10 +262,16 @@ class MainGUI:
                 self.refresh_title_lang_table()
                 win_entry.destroy()
             else:
-                messagebox.showwarning("Warning", "Both title and language code are required.")
+                messagebox.showwarning(
+                    "Warning", "Both title and language code are required."
+                )
 
-        tk.Button(win_entry, text="Save", command=_save_entry).pack(side=tk.LEFT, padx=10, pady=10)
-        tk.Button(win_entry, text="Cancel", command=win_entry.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
+        tk.Button(win_entry, text="Save", command=_save_entry).pack(
+            side=tk.LEFT, padx=10, pady=10
+        )
+        tk.Button(win_entry, text="Cancel", command=win_entry.destroy).pack(
+            side=tk.RIGHT, padx=10, pady=10
+        )
 
     def edit_title_lang(self):
         selection = self.tree_title_lang.selection()
@@ -279,10 +308,16 @@ class MainGUI:
                 self.refresh_title_lang_table()
                 win_entry.destroy()
             else:
-                messagebox.showwarning("Warning", "Both title and language code are required.")
+                messagebox.showwarning(
+                    "Warning", "Both title and language code are required."
+                )
 
-        tk.Button(win_entry, text="Update", command=_update_entry).pack(side=tk.LEFT, padx=10, pady=10)
-        tk.Button(win_entry, text="Cancel", command=win_entry.destroy).pack(side=tk.RIGHT, padx=10, pady=10)
+        tk.Button(win_entry, text="Update", command=_update_entry).pack(
+            side=tk.LEFT, padx=10, pady=10
+        )
+        tk.Button(win_entry, text="Cancel", command=win_entry.destroy).pack(
+            side=tk.RIGHT, padx=10, pady=10
+        )
 
     def remove_title_lang(self):
         selection = self.tree_title_lang.selection()
@@ -292,52 +327,78 @@ class MainGUI:
         item = selection[0]
         values = self.tree_title_lang.item(item, "values")
         title = values[0]
-        
-        if messagebox.askyesno("Confirm", f"Are you sure you want to remove '{title}'?"):
+
+        if messagebox.askyesno(
+            "Confirm", f"Are you sure you want to remove '{title}'?"
+        ):
             del self.title_lang_map[title]
             self.refresh_title_lang_table()
 
     def create_user_widgets(self):
-        tk.Label(self.frame_user, text="UserConfig", font=("Arial", 12, "bold")).pack(pady=10)
+        tk.Label(self.frame_user, text="UserConfig", font=("Arial", 12, "bold")).pack(
+            pady=10
+        )
 
         # Title-Language mapping
-        tk.Label(self.frame_user, text="Title-Language Mapping:", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
-        
+        tk.Label(
+            self.frame_user, text="Title-Language Mapping:", font=("Arial", 10, "bold")
+        ).pack(anchor="w", padx=10, pady=(10, 5))
+
         # Create treeview for title-lang mapping
         frame_tree = tk.Frame(self.frame_user)
         frame_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
+
         # Create treeview with scrollbar
         tree_frame = tk.Frame(frame_tree)
         tree_frame.pack(fill=tk.BOTH, expand=True)
-        
-        self.tree_title_lang = ttk.Treeview(tree_frame, columns=("title", "lang"), show="headings", height=6)
+
+        self.tree_title_lang = ttk.Treeview(
+            tree_frame, columns=("title", "lang"), show="headings", height=6
+        )
         self.tree_title_lang.heading("title", text="Window Title")
         self.tree_title_lang.heading("lang", text="Language Code")
         self.tree_title_lang.column("title", width=200)
         self.tree_title_lang.column("lang", width=100)
-        
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree_title_lang.yview)
+
+        vsb = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.tree_title_lang.yview
+        )
         self.tree_title_lang.configure(yscrollcommand=vsb.set)
-        
+
         self.tree_title_lang.pack(side="left", fill=tk.BOTH, expand=True)
         vsb.pack(side="right", fill="y")
-        
+
         # Buttons for managing title-lang mappings
         frame_buttons = tk.Frame(self.frame_user)
         frame_buttons.pack(fill=tk.X, padx=10, pady=5)
-        
-        tk.Button(frame_buttons, text="Add", command=self.add_title_lang).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_buttons, text="Edit", command=self.edit_title_lang).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_buttons, text="Remove", command=self.remove_title_lang).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_buttons, text="Save", command=self.save_user).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(frame_buttons, text="Add", command=self.add_title_lang).pack(
+            side=tk.LEFT, padx=5
+        )
+        tk.Button(frame_buttons, text="Edit", command=self.edit_title_lang).pack(
+            side=tk.LEFT, padx=5
+        )
+        tk.Button(frame_buttons, text="Remove", command=self.remove_title_lang).pack(
+            side=tk.LEFT, padx=5
+        )
+        tk.Button(frame_buttons, text="Save", command=self.save_user).pack(
+            side=tk.LEFT, padx=5
+        )
 
     def create_scheduled_tasks_widgets(self):
-        tk.Label(self.frame_scheduled_tasks, text="ScheduledTasks", font=("Arial", 12, "bold")).pack(pady=10)
+        tk.Label(
+            self.frame_scheduled_tasks,
+            text="ScheduledTasks",
+            font=("Arial", 12, "bold"),
+        ).pack(pady=10)
 
         self.var_scheduled_tasks_enabled = tk.BooleanVar()
-        check_enabled = tk.Checkbutton(self.frame_scheduled_tasks, text="Enabled", variable=self.var_scheduled_tasks_enabled,
-                                       command=self.on_scheduled_tasks_enabled)
+        check_enabled = tk.Checkbutton(
+            self.frame_scheduled_tasks,
+            text="Enabled",
+            variable=self.var_scheduled_tasks_enabled,
+            command=self.on_scheduled_tasks_enabled,
+        )
         check_enabled.pack(anchor="w", padx=10, pady=5)
 
         # tasks frame
@@ -356,16 +417,26 @@ class MainGUI:
         # task btns
         frame_task_btns = tk.Frame(self.frame_scheduled_tasks)
         frame_task_btns.pack(fill=tk.X, padx=10, pady=5)
-        tk.Button(frame_task_btns, text="AddTask", command=self.add_task).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_task_btns, text="EditTask", command=self.edit_task).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_task_btns, text="RemoveTask", command=self.remove_task).pack(side=tk.LEFT, padx=5)
-        tk.Button(frame_task_btns, text="SaveTasks", command=self.save_user).pack(side=tk.LEFT, padx=5)
+        tk.Button(frame_task_btns, text="AddTask", command=self.add_task).pack(
+            side=tk.LEFT, padx=5
+        )
+        tk.Button(frame_task_btns, text="EditTask", command=self.edit_task).pack(
+            side=tk.LEFT, padx=5
+        )
+        tk.Button(frame_task_btns, text="RemoveTask", command=self.remove_task).pack(
+            side=tk.LEFT, padx=5
+        )
+        tk.Button(frame_task_btns, text="SaveTasks", command=self.save_user).pack(
+            side=tk.LEFT, padx=5
+        )
 
         self.var_scheduled_tasks_enabled.set(self.scheduled_tasks.get("enabled", False))
 
     def setup_logging(self, level: str = "INFO"):
         handler = TextHandler(self.text_log)
-        formatter = logging.Formatter("<%(asctime)s>[%(name)s](%(levelname)s):\n%(message)s")
+        formatter = logging.Formatter(
+            "<%(asctime)s>[%(name)s](%(levelname)s):\n%(message)s"
+        )
         handler.setFormatter(formatter)
         logging.getLogger().addHandler(handler)
         logging.getLogger().setLevel(level)
